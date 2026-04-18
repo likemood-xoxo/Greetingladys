@@ -1,0 +1,12 @@
+{
+  "display_name": "First Message Generator",
+  "loading_order": 10,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "likemood-xoxo",
+  "version": "1.0.0",
+  "homePage": "https://github.com/likemood-xoxo/Greetingladys",
+  "auto_update": true
+}
