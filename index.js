@@ -1,7 +1,7 @@
 const MODULE_NAME = 'Greetingladys';
 
 const DEFAULT_SETTINGS = Object.freeze({
-    charDesc: '', greeting: '', userNote: '', korean: true, lastProfile: '',
+    userNote: '', korean: true, lastProfile: '',
 });
 
 function getSettings() {
@@ -26,50 +26,30 @@ const PANEL_HTML = `
       <button id="firstmsg-profile-refresh" class="menu_button" title="새로고침">↻</button>
     </div>
   </div>
-
   <div class="firstmsg-section">
-    <div class="firstmsg-row-label">
-      <label for="firstmsg-char-desc">📋 캐릭터 설명 / 퍼소나</label>
-      <button id="firstmsg-autofill-btn" class="menu_button firstmsg-small-btn">자동 채우기</button>
-    </div>
-    <textarea id="firstmsg-char-desc" rows="5" placeholder="캐릭터의 성격, 특징, 배경을 입력하세요."></textarea>
+    <label for="firstmsg-user-note">✏️ 원하는 분위기 / 추가 요청 (선택)</label>
+    <textarea id="firstmsg-user-note" rows="2" placeholder="예) 완전 롤콤, 슬로우번 느낌의 친한 친구 그리팅&#10;비워두면 캐릭터 기반으로 랜덤 생성"></textarea>
   </div>
-
-  <div class="firstmsg-section">
-    <label for="firstmsg-greeting">💬 기존 그리팅 (참고용 — 완전히 다른 새 그리팅을 생성합니다)</label>
-    <textarea id="firstmsg-greeting" rows="5" placeholder="기존 그리팅을 붙여넣으세요. 분위기·세계관·NPC만 참고하고 완전히 새로 씁니다."></textarea>
-  </div>
-
-  <div class="firstmsg-section">
-    <label for="firstmsg-user-note">✏️ 추가 요청 사항 (선택)</label>
-    <textarea id="firstmsg-user-note" rows="2" placeholder="예) 200자 내외로, 비 오는 날 밤, {{user}}가 처음 도착하는 장면"></textarea>
-  </div>
-
   <div class="firstmsg-section firstmsg-options">
     <label class="firstmsg-checkbox-label">
       <input type="checkbox" id="firstmsg-korean" checked><span>한국어 출력</span>
     </label>
   </div>
-
   <div class="firstmsg-btn-row">
     <button id="firstmsg-generate-btn" class="menu_button firstmsg-main-btn">✨ 예시 5개 생성</button>
     <button id="firstmsg-clear-btn" class="menu_button">🗑️ 초기화</button>
   </div>
-
   <div id="firstmsg-loading" style="display:none;">
-    <div class="firstmsg-spinner"></div><span id="firstmsg-loading-text">예시 생성 중...</span>
+    <div class="firstmsg-spinner"></div>
+    <span id="firstmsg-loading-text">예시 생성 중...</span>
   </div>
-
-  <!-- 예시 선택 영역 -->
   <div id="firstmsg-candidates-area" style="display:none;">
     <div class="firstmsg-candidates-header">
-      <label>💡 마음에 드는 예시를 골라주세요</label>
+      <label>💡 마음에 드는 씬을 골라주세요</label>
       <button id="firstmsg-regen-btn" class="menu_button firstmsg-small-btn">🔄 다시 생성</button>
     </div>
     <div id="firstmsg-candidates-list"></div>
   </div>
-
-  <!-- 최종 결과 -->
   <div id="firstmsg-result-area" style="display:none;">
     <div class="firstmsg-result-header">
       <label>✅ 생성된 퍼스트 메시지</label>
@@ -78,7 +58,7 @@ const PANEL_HTML = `
     <textarea id="firstmsg-result"></textarea>
     <div class="firstmsg-btn-row">
       <button id="firstmsg-copy-btn" class="menu_button">📋 복사하기</button>
-      <button id="firstmsg-back-btn" class="menu_button">↩ 예시로 돌아가기</button>
+      <button id="firstmsg-back-btn" class="menu_button">↩ 씬 목록으로</button>
     </div>
   </div>
 </div>`;
@@ -98,54 +78,77 @@ function loadPanel() {
     </div>`;
     container.appendChild(wrapper);
     restoreInputs();
-    autoFillSilent();  // 패널 열릴 때 현재 캐릭터 자동 채우기
     refreshProfiles();
     bindEvents();
 }
 
 function restoreInputs() {
     const s = getSettings();
-    setVal('firstmsg-char-desc', s.charDesc);
-    setVal('firstmsg-greeting', s.greeting);
     setVal('firstmsg-user-note', s.userNote);
     setChecked('firstmsg-korean', s.korean);
 }
 
-// ── 커넥션 프로필 목록 가져오기 ───────────────────────────────
-async function refreshProfiles() {
+function getCurrentCharInfo() {
+    const ctx = SillyTavern.getContext();
+    const char = ctx.characters?.[ctx.characterId];
+    if (!char) return null;
+    const parts = [];
+    if (char.name)        parts.push('이름: ' + char.name);
+    if (char.description) parts.push(char.description.trim());
+    if (char.personality) parts.push('성격: ' + char.personality.trim());
+    if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
+    return {
+        desc: parts.join('\n\n'),
+        firstName: char.first_mes ?? '',
+        name: char.name ?? '',
+    };
+}
+
+function refreshProfiles() {
     const select = document.getElementById('firstmsg-profile-select');
     if (!select) return;
     while (select.options.length > 1) select.remove(1);
 
-    // ST context에서 직접 가져오기 (가장 확실한 방법)
     const ctx = SillyTavern.getContext();
-    let profiles = ctx.connection_profiles
-                ?? ctx.connectionProfiles
-                ?? ctx.settings?.connection_profiles
-                ?? [];
 
-    // context에 없으면 API로 시도
-    if (!profiles.length) {
-        for (const path of ['/api/connection-profiles', '/api/settings/connection-profiles']) {
-            try {
-                const resp = await fetch(path);
-                if (resp.ok) { profiles = await resp.json(); break; }
-            } catch(e) {}
+    // ST가 프로필을 보관하는 모든 경로 시도
+    let profiles =
+        ctx.connection_profiles ??
+        ctx.connectionProfiles ??
+        ctx.settings?.connection_profiles ??
+        ctx.settings?.connectionProfiles ??
+        null;
+
+    // context에 없으면 전역 power_user 객체에서 탐색
+    if (!profiles?.length) {
+        try { profiles = window.power_user?.connection_profiles ?? null; } catch(e) {}
+    }
+
+    // 그래도 없으면 window 전체에서 connection_profiles 키 탐색
+    if (!profiles?.length) {
+        try {
+            for (const key of Object.keys(window)) {
+                const val = window[key];
+                if (val && typeof val === 'object' && Array.isArray(val.connection_profiles) && val.connection_profiles.length) {
+                    profiles = val.connection_profiles;
+                    break;
+                }
+            }
+        } catch(e) {}
+    }
+
+    if (Array.isArray(profiles) && profiles.length > 0) {
+        for (const p of profiles) {
+            const opt = document.createElement('option');
+            opt.value = p.id ?? p.name ?? String(p);
+            opt.textContent = p.name ?? p.id ?? String(p);
+            select.appendChild(opt);
         }
-    }
-
-    for (const p of profiles) {
-        const opt = document.createElement('option');
-        opt.value = p.id ?? p.name ?? String(p);
-        opt.textContent = p.name ?? p.id ?? String(p);
-        select.appendChild(opt);
-    }
-
-    if (!profiles.length) {
-        const opt = document.createElement('option');
-        opt.value = ''; opt.disabled = true;
-        opt.textContent = '(저장된 프로필 없음)';
-        select.appendChild(opt);
+    } else {
+        const noOpt = document.createElement('option');
+        noOpt.disabled = true;
+        noOpt.textContent = '(저장된 프로필 없음 — 현재 API 사용)';
+        select.appendChild(noOpt);
     }
 
     const saved = getSettings().lastProfile;
@@ -157,14 +160,12 @@ function bindEvents() {
     on('firstmsg-regen-btn',       'click', handleGenerateCandidates);
     on('firstmsg-copy-btn',        'click', handleCopy);
     on('firstmsg-clear-btn',       'click', handleClear);
-    on('firstmsg-autofill-btn',    'click', autoFill);
     on('firstmsg-profile-refresh', 'click', refreshProfiles);
-    on('firstmsg-back-btn',        'click', () => {
+    on('firstmsg-back-btn', 'click', () => {
         document.getElementById('firstmsg-result-area').style.display = 'none';
         document.getElementById('firstmsg-candidates-area').style.display = 'flex';
     });
-    ['firstmsg-char-desc','firstmsg-greeting','firstmsg-user-note'].forEach(id =>
-        document.getElementById(id)?.addEventListener('input', persistInputs));
+    document.getElementById('firstmsg-user-note')?.addEventListener('input', persistInputs);
     document.getElementById('firstmsg-korean')?.addEventListener('change', persistInputs);
     document.getElementById('firstmsg-profile-select')?.addEventListener('change', () => {
         getSettings().lastProfile = getVal('firstmsg-profile-select');
@@ -175,58 +176,32 @@ function bindEvents() {
 
 function persistInputs() {
     const s = getSettings();
-    s.charDesc = getVal('firstmsg-char-desc');
-    s.greeting = getVal('firstmsg-greeting');
     s.userNote = getVal('firstmsg-user-note');
     s.korean   = getChecked('firstmsg-korean');
     SillyTavern.getContext().saveSettingsDebounced();
 }
 
-// 패널 로드 시 조용히 자동 채우기 (이미 입력값 있으면 덮어쓰지 않음)
-function autoFillSilent() {
-    const ctx = SillyTavern.getContext();
-    const char = ctx.characters?.[ctx.characterId];
-    if (!char) return;
-    const descEl = document.getElementById('firstmsg-char-desc');
-    if (descEl && !descEl.value.trim()) {
-        const parts = [];
-        if (char.name)        parts.push('이름: ' + char.name);
-        if (char.description) parts.push(char.description.trim());
-        if (char.personality) parts.push('성격: ' + char.personality.trim());
-        if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
-        descEl.value = parts.join('\n\n');
-    }
-    const greetEl = document.getElementById('firstmsg-greeting');
-    if (greetEl && !greetEl.value.trim() && char.first_mes) {
-        greetEl.value = char.first_mes;
-    }
+async function switchProfileIfNeeded() {
+    const profileId = getVal('firstmsg-profile-select');
+    if (!profileId) return;
+    try {
+        await fetch('/api/connection-profiles/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: profileId }),
+        });
+    } catch(e) {}
 }
 
-function autoFill() {
-    const ctx = SillyTavern.getContext();
-    const char = ctx.characters?.[ctx.characterId];
-    if (!char) { toastr.warning('현재 선택된 캐릭터가 없습니다.'); return; }
-    const parts = [];
-    if (char.name)        parts.push('이름: ' + char.name);
-    if (char.description) parts.push(char.description.trim());
-    if (char.personality) parts.push('성격: ' + char.personality.trim());
-    if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
-    setVal('firstmsg-char-desc', parts.join('\n\n'));
-    if (char.first_mes) setVal('firstmsg-greeting', char.first_mes);
-    persistInputs();
-    toastr.success('"' + char.name + '" 캐릭터 정보를 불러왔습니다.');
-}
-
-// ── STEP 1: 예시 5개 생성 ──────────────────────────────────────
+// ── STEP 1: 씬 예시 5개 생성 ─────────────────────────────────
 async function handleGenerateCandidates() {
-    const charDesc = getVal('firstmsg-char-desc');
-    const greeting = getVal('firstmsg-greeting');
-    const userNote = getVal('firstmsg-user-note');
-    const korean   = getChecked('firstmsg-korean');
-    if (!charDesc.trim() && !greeting.trim()) {
-        toastr.error('캐릭터 설명 또는 그리팅을 입력해주세요!');
+    const charInfo = getCurrentCharInfo();
+    if (!charInfo?.desc?.trim()) {
+        toastr.error('캐릭터를 먼저 선택해주세요!');
         return;
     }
+    const userNote = getVal('firstmsg-user-note');
+    const korean   = getChecked('firstmsg-korean');
 
     await switchProfileIfNeeded();
     setLoading(true, '예시 5개 생성 중...');
@@ -234,28 +209,26 @@ async function handleGenerateCandidates() {
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the provided info.';
-        const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 아이디어를 제안하는 작가입니다.
+        const langLine = korean
+            ? '반드시 한국어로 작성하세요.'
+            : 'Write in the same language as the character info.';
 
-[중요 규칙]
-- 기존 그리팅은 오직 참고용입니다. 절대 그대로 쓰거나 살짝만 바꾸지 마세요.
-- 캐릭터의 말투, 성격, 세계관, NPC는 살리되, 완전히 새로운 장면과 상황을 제안하세요.
+        const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 씬 아이디어를 제안하는 작가입니다.
+
+[규칙]
+- 기존 그리팅은 참고용입니다. 절대 그대로 쓰거나 살짝만 바꾸지 마세요. 완전히 새로운 씬을 제안하세요.
+- 캐릭터의 성격과 특성이 자연스럽게 드러나는 씬이어야 합니다.
+- 각 예시는 반드시 한 문장으로만 씁니다. 실제 대사나 긴 묘사 절대 금지.
+- 어떤 장면인지 핵심 상황만 짧고 재미있게 설명하세요.
 - ${langLine}
 
-지금은 서로 다른 분위기의 씬 아이디어를 딱 5개만 제안합니다.
-각 예시는 반드시 한 문장으로만 씁니다. 실제 대사나 묘사 절대 금지.
-어떤 장면인지 핵심 상황만 짧게 설명하세요.
+반드시 아래 JSON 형식으로만 출력하세요. 다른 텍스트 없이:
+{"candidates":["씬 설명 1","씬 설명 2","씬 설명 3","씬 설명 4","씬 설명 5"]}`;
 
-예시 형식:
-{"candidates":["비 오는 날, 다 젖은 채 귀가 쳐진 {{char}}가 닦아달라며 칭얼대는 씬","'나 아파. 간호해줘.' 징징거리며 다가온 {{char}}의 체온계는 정상을 가리키는 황당한 씬","새벽 2시에 방문을 열고 들어와 옆에 꾸물꾸물 끼어드는 {{char}}의 씬","...","..."]}
-
-반드시 위와 같은 JSON 형식으로만 출력하세요. 다른 텍스트 없이.`;
-
-        let userPrompt = '';
-        if (charDesc.trim()) userPrompt += '[캐릭터 정보]\n' + charDesc.trim() + '\n\n';
-        if (greeting.trim()) userPrompt += '[기존 그리팅 — 참고만 할 것, 그대로 쓰지 말 것]\n' + greeting.trim() + '\n\n';
-        if (userNote.trim()) userPrompt += '[추가 요청]\n' + userNote.trim() + '\n\n';
-        userPrompt += '위 정보를 바탕으로 완전히 새로운 퍼스트 메시지 예시 5개를 JSON으로 출력하세요.';
+        let userPrompt = '[캐릭터 정보]\n' + charInfo.desc + '\n\n';
+        if (charInfo.firstName) userPrompt += '[기존 그리팅 — 참고만 할 것]\n' + charInfo.firstName + '\n\n';
+        if (userNote.trim())    userPrompt += '[원하는 분위기 / 추가 요청]\n' + userNote.trim() + '\n\n';
+        userPrompt += '완전히 새로운 씬 아이디어 5개를 JSON으로 출력하세요.';
 
         const raw = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
         const jsonStr = raw.replace(/```json|```/g, '').trim();
@@ -263,7 +236,7 @@ async function handleGenerateCandidates() {
         const candidates = parsed.candidates ?? parsed;
 
         renderCandidates(candidates);
-        toastr.success('예시 5개 생성 완료! 마음에 드는 걸 골라주세요.');
+        toastr.success('씬 아이디어 5개 생성 완료!');
     } catch(err) {
         console.error('[' + MODULE_NAME + ']', err);
         toastr.error('오류: ' + (err.message ?? err));
@@ -286,39 +259,48 @@ function renderCandidates(candidates) {
     document.getElementById('firstmsg-candidates-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ── STEP 2: 선택한 예시를 풀버전으로 확장 ──────────────────────
+// ── STEP 2: 선택한 씬 → 풀버전 ───────────────────────────────
 async function handleSelectCandidate(candidateText, idx) {
-    const charDesc = getVal('firstmsg-char-desc');
-    const greeting = getVal('firstmsg-greeting');
+    const charInfo = getCurrentCharInfo();
     const userNote = getVal('firstmsg-user-note');
     const korean   = getChecked('firstmsg-korean');
 
-    // 선택된 카드 하이라이트
-    document.querySelectorAll('.firstmsg-candidate-card').forEach((c, i) => {
-        c.classList.toggle('firstmsg-candidate-selected', i === idx);
-    });
+    document.querySelectorAll('.firstmsg-candidate-card').forEach((c, i) =>
+        c.classList.toggle('firstmsg-candidate-selected', i === idx));
 
     await switchProfileIfNeeded();
-    setLoading(true, '선택한 예시를 풀버전으로 작성 중...');
+    setLoading(true, '풀버전 작성 중...');
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the provided info.';
+        const langLine = korean
+            ? '반드시 한국어로 작성하세요.'
+            : 'Write in the same language as the character info.';
+
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지를 전문으로 대필하는 작가입니다.
 
-[규칙]
-- 캐릭터의 말투, 성격, 세계관을 정확히 반영하세요.
-- 기존 그리팅은 참고용입니다. 그대로 쓰지 말고 완전히 새로 작성하세요.
-- 행동 묘사는 *이탤릭체*로, 대사는 자연스럽게 포함하세요.
+[서술 규칙 — 반드시 준수]
+- 나레이션(배경 묘사, 행동 묘사)은 이탤릭 없이 일반 텍스트로 씁니다.
+- *이탤릭*은 오직 캐릭터의 내면 생각이나 독백에만 사용합니다.
+- 캐릭터 대사는 따옴표로 표시합니다.
+- 절대 모든 나레이션에 *이탤릭*을 남발하지 마세요.
+
+[예시 형식]
+방 안에 빗소리가 조용히 깔린다. 아틀라스가 젖은 머리를 털며 문을 열고 들어온다.
+*왜 이렇게 신경 쓰이지.*
+"야, 타월 좀 줘봐."
+
+[내용 규칙]
+- 기존 그리팅은 참고용입니다. 완전히 새로운 장면으로 작성하세요.
+- 캐릭터의 말투, 성격, 특성을 정확히 반영하세요.
 - {{user}}, {{char}} 변수는 그대로 유지하세요.
 - ${langLine}
 - 퍼스트 메시지 본문만 출력하세요. 제목이나 설명 없이.`;
 
-        let userPrompt = '';
-        if (charDesc.trim()) userPrompt += '[캐릭터 정보]\n' + charDesc.trim() + '\n\n';
-        if (greeting.trim()) userPrompt += '[기존 그리팅 — 참고만 할 것]\n' + greeting.trim() + '\n\n';
-        if (userNote.trim()) userPrompt += '[추가 요청]\n' + userNote.trim() + '\n\n';
-        userPrompt += '[선택한 예시 — 이 내용을 바탕으로 풀버전으로 확장해주세요]\n' + candidateText + '\n\n퍼스트 메시지를 작성해주세요.';
+        let userPrompt = '[캐릭터 정보]\n' + charInfo.desc + '\n\n';
+        if (charInfo.firstName) userPrompt += '[기존 그리팅 — 참고만 할 것]\n' + charInfo.firstName + '\n\n';
+        if (userNote.trim())    userPrompt += '[원하는 분위기]\n' + userNote.trim() + '\n\n';
+        userPrompt += '[선택한 씬 아이디어]\n' + candidateText + '\n\n이 씬을 풀버전 퍼스트 메시지로 작성해주세요.';
 
         const result = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
         if (!result?.trim()) { toastr.error('생성 결과가 비어있습니다.'); return; }
@@ -334,18 +316,6 @@ async function handleSelectCandidate(candidateText, idx) {
     } finally {
         setLoading(false);
     }
-}
-
-async function switchProfileIfNeeded() {
-    const profileId = getVal('firstmsg-profile-select');
-    if (!profileId) return;
-    try {
-        await fetch('/api/connection-profiles/activate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: profileId }),
-        });
-    } catch(e) {}
 }
 
 function setLoading(on, msg) {
@@ -369,9 +339,7 @@ async function handleCopy() {
 }
 
 function handleClear() {
-    ['firstmsg-char-desc','firstmsg-greeting','firstmsg-user-note','firstmsg-result'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.value = '';
-    });
+    setVal('firstmsg-user-note', '');
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
     persistInputs();
