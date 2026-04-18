@@ -1,0 +1,13 @@
+{
+  "display_name": "First Message Generator",
+  "loading_order": 10,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "html": "index.html",
+  "author": "custom",
+  "version": "1.0.0",
+  "homePage": "https://github.com/your-name/st-firstmsg-generator",
+  "auto_update": true
+}
