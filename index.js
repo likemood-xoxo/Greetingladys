@@ -98,6 +98,7 @@ function loadPanel() {
     </div>`;
     container.appendChild(wrapper);
     restoreInputs();
+    autoFillSilent();  // 패널 열릴 때 현재 캐릭터 자동 채우기
     refreshProfiles();
     bindEvents();
 }
@@ -116,20 +117,35 @@ async function refreshProfiles() {
     if (!select) return;
     while (select.options.length > 1) select.remove(1);
 
-    try {
-        // ST의 /api/connection-profiles 엔드포인트로 실제 목록 가져오기
-        const resp = await fetch('/api/connection-profiles');
-        if (resp.ok) {
-            const profiles = await resp.json();
-            for (const p of profiles) {
-                const opt = document.createElement('option');
-                opt.value = p.id ?? p.name ?? p;
-                opt.textContent = p.name ?? p.id ?? String(p);
-                select.appendChild(opt);
-            }
+    // ST context에서 직접 가져오기 (가장 확실한 방법)
+    const ctx = SillyTavern.getContext();
+    let profiles = ctx.connection_profiles
+                ?? ctx.connectionProfiles
+                ?? ctx.settings?.connection_profiles
+                ?? [];
+
+    // context에 없으면 API로 시도
+    if (!profiles.length) {
+        for (const path of ['/api/connection-profiles', '/api/settings/connection-profiles']) {
+            try {
+                const resp = await fetch(path);
+                if (resp.ok) { profiles = await resp.json(); break; }
+            } catch(e) {}
         }
-    } catch(e) {
-        console.warn('[' + MODULE_NAME + '] 프로필 목록 가져오기 실패', e);
+    }
+
+    for (const p of profiles) {
+        const opt = document.createElement('option');
+        opt.value = p.id ?? p.name ?? String(p);
+        opt.textContent = p.name ?? p.id ?? String(p);
+        select.appendChild(opt);
+    }
+
+    if (!profiles.length) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.disabled = true;
+        opt.textContent = '(저장된 프로필 없음)';
+        select.appendChild(opt);
     }
 
     const saved = getSettings().lastProfile;
@@ -166,6 +182,26 @@ function persistInputs() {
     SillyTavern.getContext().saveSettingsDebounced();
 }
 
+// 패널 로드 시 조용히 자동 채우기 (이미 입력값 있으면 덮어쓰지 않음)
+function autoFillSilent() {
+    const ctx = SillyTavern.getContext();
+    const char = ctx.characters?.[ctx.characterId];
+    if (!char) return;
+    const descEl = document.getElementById('firstmsg-char-desc');
+    if (descEl && !descEl.value.trim()) {
+        const parts = [];
+        if (char.name)        parts.push('이름: ' + char.name);
+        if (char.description) parts.push(char.description.trim());
+        if (char.personality) parts.push('성격: ' + char.personality.trim());
+        if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
+        descEl.value = parts.join('\n\n');
+    }
+    const greetEl = document.getElementById('firstmsg-greeting');
+    if (greetEl && !greetEl.value.trim() && char.first_mes) {
+        greetEl.value = char.first_mes;
+    }
+}
+
 function autoFill() {
     const ctx = SillyTavern.getContext();
     const char = ctx.characters?.[ctx.characterId];
@@ -199,19 +235,21 @@ async function handleGenerateCandidates() {
 
     try {
         const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the provided info.';
-        const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지를 전문으로 대필하는 작가입니다.
+        const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 아이디어를 제안하는 작가입니다.
 
 [중요 규칙]
 - 기존 그리팅은 오직 참고용입니다. 절대 그대로 쓰거나 살짝만 바꾸지 마세요.
-- 캐릭터의 말투, 성격, 세계관, NPC는 살리되, 완전히 새로운 장면과 상황으로 시작하세요.
-- {{user}}, {{char}} 같은 변수는 그대로 유지하세요.
+- 캐릭터의 말투, 성격, 세계관, NPC는 살리되, 완전히 새로운 장면과 상황을 제안하세요.
 - ${langLine}
 
-지금은 서로 다른 분위기와 시작 장면의 예시를 딱 5개만 작성합니다.
-각 예시는 1~3문장의 짧은 요약(미리보기)으로 작성하세요.
-반드시 아래 JSON 형식으로만 출력하세요. 다른 텍스트 없이.
+지금은 서로 다른 분위기의 씬 아이디어를 딱 5개만 제안합니다.
+각 예시는 반드시 한 문장으로만 씁니다. 실제 대사나 묘사 절대 금지.
+어떤 장면인지 핵심 상황만 짧게 설명하세요.
 
-{"candidates":["예시1 내용","예시2 내용","예시3 내용","예시4 내용","예시5 내용"]}`;
+예시 형식:
+{"candidates":["비 오는 날, 다 젖은 채 귀가 쳐진 {{char}}가 닦아달라며 칭얼대는 씬","'나 아파. 간호해줘.' 징징거리며 다가온 {{char}}의 체온계는 정상을 가리키는 황당한 씬","새벽 2시에 방문을 열고 들어와 옆에 꾸물꾸물 끼어드는 {{char}}의 씬","...","..."]}
+
+반드시 위와 같은 JSON 형식으로만 출력하세요. 다른 텍스트 없이.`;
 
         let userPrompt = '';
         if (charDesc.trim()) userPrompt += '[캐릭터 정보]\n' + charDesc.trim() + '\n\n';
