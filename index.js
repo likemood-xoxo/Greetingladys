@@ -19,7 +19,7 @@ const POPUP_HTML = `
 <div id="firstmsg-popup-overlay" class="firstmsg-popup-overlay" style="display:none;">
   <div class="firstmsg-popup-box">
     <div class="firstmsg-popup-header">
-      <span>✨ First Message Generator</span>
+      <span>✨ GreetingLadys</span>
       <button id="firstmsg-popup-close" class="firstmsg-popup-close-btn" title="닫기">✕</button>
     </div>
     <div class="firstmsg-panel">
@@ -77,20 +77,27 @@ const POPUP_HTML = `
 function initPopup() {
     if (document.getElementById('firstmsg-popup-overlay')) return;
     document.body.insertAdjacentHTML('beforeend', POPUP_HTML);
-    restoreInputs();
+    setChecked('firstmsg-korean', getSettings().korean);
     refreshProfiles();
     bindPopupEvents();
 }
 
 function openPopup() {
     initPopup();
-    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
-    // 열 때마다 상태 초기화
+    // 열 때마다 내용 완전 초기화
+    setVal('firstmsg-user-note', '');
+    setVal('firstmsg-result', '');
+    setChecked('firstmsg-korean', true);
+    const charCount = document.getElementById('firstmsg-char-count');
+    if (charCount) charCount.textContent = '';
+    const list = document.getElementById('firstmsg-candidates-list');
+    if (list) list.innerHTML = '';
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
     document.getElementById('firstmsg-loading').style.display = 'none';
     // 팝업 열릴 때마다 프로필 최신화
     refreshProfiles();
+    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
 }
 
 function closePopup() {
@@ -100,11 +107,8 @@ function closePopup() {
 
 // ── ✒️ 버튼을 캐릭터 창에 주입 ───────────────────────────────
 function injectPencilButton() {
-    // 이미 주입된 경우 스킵
     if (document.getElementById('firstmsg-pencil-btn')) return;
 
-    // "대체. 첫 메시지" 버튼 찾기
-    // ST에서 alt greetings 버튼은 #set_first_mes 또는 텍스트로 탐색
     const altBtn =
         document.querySelector('#set_first_mes') ??
         [...document.querySelectorAll('button, .menu_button, [title]')]
@@ -115,7 +119,7 @@ function injectPencilButton() {
     const pencilBtn = document.createElement('button');
     pencilBtn.id = 'firstmsg-pencil-btn';
     pencilBtn.className = 'menu_button firstmsg-pencil-btn';
-    pencilBtn.title = 'AI로 퍼스트 메시지 생성';
+    pencilBtn.title = 'GreetingLadys — AI 그리팅 생성';
     pencilBtn.textContent = '✒️';
     pencilBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -123,33 +127,10 @@ function injectPencilButton() {
         openPopup();
     });
 
-    // 버튼 바로 뒤에 삽입
     altBtn.insertAdjacentElement('afterend', pencilBtn);
 }
 
-// ── 입력 복원 / 저장 ─────────────────────────────────────────
-function restoreInputs() {
-    const s = getSettings();
-    setVal('firstmsg-user-note', s.userNote);
-    setChecked('firstmsg-korean', s.korean);
-}
-
-function getCurrentCharInfo() {
-    const ctx = SillyTavern.getContext();
-    const char = ctx.characters?.[ctx.characterId];
-    if (!char) return null;
-    const parts = [];
-    if (char.name)        parts.push('이름: ' + char.name);
-    if (char.description) parts.push(char.description.trim());
-    if (char.personality) parts.push('성격: ' + char.personality.trim());
-    if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
-    return {
-        desc: parts.join('\n\n'),
-        firstName: char.first_mes ?? '',
-        name: char.name ?? '',
-    };
-}
-
+// ── 프로필 목록 ──────────────────────────────────────────────
 async function refreshProfiles() {
     const select = document.getElementById('firstmsg-profile-select');
     if (!select) return;
@@ -157,16 +138,20 @@ async function refreshProfiles() {
 
     let profiles = null;
 
-    // 1순위: ST REST API로 직접 가져오기
+    // 1순위: ST REST API
     try {
-        const res = await fetch('/api/connection-profiles/get-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const res = await fetch('/api/connection-profiles/get-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        });
         if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data) && data.length) profiles = data;
         }
     } catch(e) {}
 
-    // 2순위: context 각종 경로
+    // 2순위: context
     if (!profiles?.length) {
         const ctx = SillyTavern.getContext();
         profiles =
@@ -225,8 +210,10 @@ function bindPopupEvents() {
         document.getElementById('firstmsg-result-area').style.display = 'none';
         document.getElementById('firstmsg-candidates-area').style.display = 'flex';
     });
-    document.getElementById('firstmsg-user-note')?.addEventListener('input', persistInputs);
-    document.getElementById('firstmsg-korean')?.addEventListener('change', persistInputs);
+    document.getElementById('firstmsg-korean')?.addEventListener('change', () => {
+        getSettings().korean = getChecked('firstmsg-korean');
+        SillyTavern.getContext().saveSettingsDebounced();
+    });
     document.getElementById('firstmsg-profile-select')?.addEventListener('change', () => {
         getSettings().lastProfile = getVal('firstmsg-profile-select');
         SillyTavern.getContext().saveSettingsDebounced();
@@ -237,13 +224,6 @@ function bindPopupEvents() {
     document.getElementById('firstmsg-popup-overlay')?.addEventListener('click', (e) => {
         if (e.target.id === 'firstmsg-popup-overlay') closePopup();
     });
-}
-
-function persistInputs() {
-    const s = getSettings();
-    s.userNote = getVal('firstmsg-user-note');
-    s.korean   = getChecked('firstmsg-korean');
-    SillyTavern.getContext().saveSettingsDebounced();
 }
 
 async function switchProfileIfNeeded() {
@@ -393,14 +373,12 @@ async function handleApplyGreeting() {
     if (!char) { toastr.error('캐릭터를 선택해주세요.'); return; }
 
     try {
-        // alternate_greetings 배열에 추가
         if (!Array.isArray(char.data?.alternate_greetings)) {
             if (!char.data) char.data = {};
             char.data.alternate_greetings = [];
         }
         char.data.alternate_greetings.push(text);
 
-        // ST API로 저장
         const formData = new FormData();
         formData.append('avatar_url', char.avatar);
         formData.append('ch_name', char.name);
@@ -416,7 +394,6 @@ async function handleApplyGreeting() {
         const res = await fetch('/api/characters/edit', { method: 'POST', body: formData });
         if (!res.ok) throw new Error('저장 실패: ' + res.status);
 
-        // 이벤트 발행해서 UI 새로고침
         ctx.eventSource.emit(ctx.event_types.CHARACTER_EDITED, { detail: { id: ctx.characterId } });
 
         toastr.success('그리팅에 추가되었습니다!');
@@ -425,6 +402,22 @@ async function handleApplyGreeting() {
         console.error('[' + MODULE_NAME + ']', err);
         toastr.error('추가 실패: ' + (err.message ?? err));
     }
+}
+
+function getCurrentCharInfo() {
+    const ctx = SillyTavern.getContext();
+    const char = ctx.characters?.[ctx.characterId];
+    if (!char) return null;
+    const parts = [];
+    if (char.name)        parts.push('이름: ' + char.name);
+    if (char.description) parts.push(char.description.trim());
+    if (char.personality) parts.push('성격: ' + char.personality.trim());
+    if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
+    return {
+        desc: parts.join('\n\n'),
+        firstName: char.first_mes ?? '',
+        name: char.name ?? '',
+    };
 }
 
 function setLoading(on, msg) {
@@ -449,9 +442,11 @@ async function handleCopy() {
 
 function handleClear() {
     setVal('firstmsg-user-note', '');
+    setVal('firstmsg-result', '');
+    const list = document.getElementById('firstmsg-candidates-list');
+    if (list) list.innerHTML = '';
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
-    persistInputs();
     toastr.info('초기화되었습니다.');
 }
 
@@ -465,7 +460,6 @@ function setVal(id, v) { const el = document.getElementById(id); if (el) el.valu
 function getChecked(id) { return document.getElementById(id)?.checked ?? false; }
 function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
 
-// ── 버튼 주입: 여러 시점에 재시도 ───────────────────────────
 function tryInjectPencilButton() {
     injectPencilButton();
 }
@@ -475,7 +469,6 @@ jQuery(async () => {
 
     eventSource.on(event_types.APP_READY, () => {
         tryInjectPencilButton();
-        // DOM 변화 감지해서 버튼 주입 유지
         const observer = new MutationObserver(() => {
             if (!document.getElementById('firstmsg-pencil-btn')) {
                 tryInjectPencilButton();
@@ -484,7 +477,6 @@ jQuery(async () => {
         observer.observe(document.body, { childList: true, subtree: true });
     });
 
-    // 캐릭터 전환 시 버튼 재주입
     eventSource.on(event_types.CHARACTER_SELECTED, () => {
         setTimeout(tryInjectPencilButton, 300);
     });
