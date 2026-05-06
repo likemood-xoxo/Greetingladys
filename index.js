@@ -39,7 +39,7 @@ const POPUP_HTML = `
       </div>
       <div class="firstmsg-section firstmsg-options">
         <label class="firstmsg-checkbox-label">
-          <input type="checkbox" id="firstmsg-korean" checked><span>한국어 출력</span>
+          <input type="checkbox" id="firstmsg-korean"><span>한국어 출력</span>
         </label>
       </div>
       <div class="firstmsg-btn-row">
@@ -85,7 +85,7 @@ function openPopup() {
     initPopup();
     setVal('firstmsg-user-note', '');
     setVal('firstmsg-result', '');
-    setChecked('firstmsg-korean', true);
+    setChecked('firstmsg-korean', false);
     const charCount = document.getElementById('firstmsg-char-count');
     if (charCount) charCount.textContent = '';
     const list = document.getElementById('firstmsg-candidates-list');
@@ -379,6 +379,8 @@ function getCurrentCharInfo() {
     if (char.description) parts.push(char.description.trim());
     if (char.personality) parts.push('성격: ' + char.personality.trim());
     if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
+    // 페르소나 이름은 항상 {{user}}로 고정
+    parts.push('유저(상대방) 이름: {{user}}');
     return { desc: parts.join('\n\n'), firstName: char.first_mes ?? '', name: char.name ?? '' };
 }
 
