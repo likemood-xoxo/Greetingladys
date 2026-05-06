@@ -1,3 +1,4 @@
+/* ── 기존 패널 스타일 (팝업 내부용) ── */
 .firstmsg-panel {
   display: flex;
   flex-direction: column;
@@ -50,6 +51,7 @@
 .firstmsg-btn-row .menu_button { flex: 1; min-width: 90px; font-size: 0.84em; padding: 6px 10px; }
 .firstmsg-main-btn { background: linear-gradient(135deg, #6a4fa3, #9b6fd4) !important; font-weight: 700 !important; }
 .firstmsg-main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.firstmsg-apply-btn { background: linear-gradient(135deg, #2e7d52, #3fa373) !important; font-weight: 700 !important; }
 .firstmsg-small-btn { padding: 2px 8px !important; font-size: 0.78em !important; flex: none !important; min-width: unset !important; }
 #firstmsg-loading { display: flex; align-items: center; gap: 10px; color: var(--SmartThemeBodyColor, #ccc); font-style: italic; padding: 4px 0; }
 .firstmsg-spinner {
@@ -101,3 +103,70 @@
 .firstmsg-result-header { display: flex; align-items: center; justify-content: space-between; }
 .firstmsg-result-header label { font-weight: 600; color: var(--SmartThemeQuoteColor, #9b8fd4) !important; }
 .firstmsg-char-count { font-size: 0.78em; color: var(--SmartThemeEmColor, #888); }
+
+/* ── ✒️ 펜슬 버튼 ── */
+.firstmsg-pencil-btn {
+  padding: 2px 7px !important;
+  font-size: 0.85em !important;
+  min-width: unset !important;
+  flex: none !important;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.firstmsg-pencil-btn:hover { opacity: 1; }
+
+/* ── 팝업 오버레이 ── */
+.firstmsg-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+
+/* ── 팝업 박스 ── */
+.firstmsg-popup-box {
+  background: var(--SmartThemeBlurTintColor, #1e1e2e);
+  border: 1px solid var(--SmartThemeBorderColor, #555);
+  border-radius: 12px;
+  width: min(480px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+  padding: 18px 20px 20px;
+  gap: 0;
+}
+
+/* ── 팝업 헤더 ── */
+.firstmsg-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--SmartThemeBodyColor, #eee);
+  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+  padding-bottom: 10px;
+}
+.firstmsg-popup-close-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--SmartThemeEmColor, #888);
+  font-size: 1.05em;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.firstmsg-popup-close-btn:hover {
+  color: var(--SmartThemeBodyColor, #eee);
+  background: rgba(255,255,255,0.08) !important;
+}
