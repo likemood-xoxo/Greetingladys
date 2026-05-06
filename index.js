@@ -83,7 +83,6 @@ function initPopup() {
 
 function openPopup() {
     initPopup();
-    // 열 때마다 내용 완전 초기화
     setVal('firstmsg-user-note', '');
     setVal('firstmsg-result', '');
     setChecked('firstmsg-korean', true);
@@ -94,10 +93,8 @@ function openPopup() {
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
     document.getElementById('firstmsg-loading').style.display = 'none';
-    // 프로필 최신화 후 팝업 표시
-    refreshProfiles().then(() => {
-        document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
-    });
+    refreshProfiles();
+    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
 }
 
 function closePopup() {
@@ -105,7 +102,7 @@ function closePopup() {
     if (overlay) overlay.style.display = 'none';
 }
 
-// ── ✒️ 버튼을 캐릭터 창에 주입 ───────────────────────────────
+// ── ✒️ 버튼 주입 ─────────────────────────────────────────────
 function injectPencilButton() {
     if (document.getElementById('firstmsg-pencil-btn')) return;
 
@@ -136,96 +133,33 @@ function injectPencilButton() {
 }
 
 // ── 프로필 목록 로드 ─────────────────────────────────────────
-async function refreshProfiles() {
-    const select = document.getElementById('firstmsg-profile-select');
-    if (!select) return;
-    while (select.options.length > 1) select.remove(1);
+function refreshProfiles() {
+    const mySelect = document.getElementById('firstmsg-profile-select');
+    if (!mySelect) return;
 
-    let profiles = null;
+    while (mySelect.options.length > 1) mySelect.remove(1);
 
-    // 방법 1: ST settings에서 직접 읽기 (가장 안정적)
-    try {
-        const ctx = SillyTavern.getContext();
-        // ST 1.12+ 방식
-        if (typeof ctx.getConnectionProfiles === 'function') {
-            profiles = ctx.getConnectionProfiles();
-        }
-    } catch(e) {}
+    const ctx = SillyTavern.getContext();
 
-    // 방법 2: /api/settings/get 으로 전체 설정 가져오기
-    if (!profiles?.length) {
-        try {
-            const res = await fetch('/api/settings/get', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                // connection_profiles는 settings 최상위 또는 power_user 안에 있음
-                profiles =
-                    data.connection_profiles ??
-                    data.power_user?.connection_profiles ??
-                    null;
-            }
-        } catch(e) {}
-    }
-
-    // 방법 3: /api/connection-profiles/get-all
-    if (!profiles?.length) {
-        try {
-            const res = await fetch('/api/connection-profiles/get-all', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && data.length) profiles = data;
-            }
-        } catch(e) {}
-    }
-
-    // 방법 4: context 객체 직접 탐색
-    if (!profiles?.length) {
-        try {
-            const ctx = SillyTavern.getContext();
-            profiles =
-                ctx.connection_profiles ??
-                ctx.connectionProfiles ??
-                ctx.settings?.connection_profiles ??
-                ctx.settings?.connectionProfiles ??
-                window.power_user?.connection_profiles ??
-                null;
-        } catch(e) {}
-    }
-
-    // 방법 5: window 전체 탐색
-    if (!profiles?.length) {
-        try {
-            for (const key of Object.keys(window)) {
-                const val = window[key];
-                if (val && typeof val === 'object' && !Array.isArray(val) &&
-                    Array.isArray(val.connection_profiles) && val.connection_profiles.length) {
-                    profiles = val.connection_profiles;
-                    break;
-                }
-            }
-        } catch(e) {}
-    }
+    // ST가 프로필을 저장하는 실제 경로
+    const profiles =
+        ctx.extensionSettings?.connectionManager?.profiles ??
+        ctx.extensionSettings?.['connection-manager']?.profiles ??
+        null;
 
     if (Array.isArray(profiles) && profiles.length > 0) {
+        const saved = getSettings().lastProfile;
         for (const p of profiles) {
             const opt = document.createElement('option');
             opt.value = p.id ?? p.name ?? String(p);
             opt.textContent = p.name ?? p.id ?? String(p);
-            select.appendChild(opt);
+            mySelect.appendChild(opt);
         }
-        // 마지막으로 저장된 프로필 복원
-        const saved = getSettings().lastProfile;
-        if (saved) select.value = saved;
+        if (saved) mySelect.value = saved;
+        console.log('[GreetingLadys] 프로필 로드 완료:', mySelect.options.length - 1, '개');
+    } else {
+        console.log('[GreetingLadys] 프로필 없음 — 현재 API 사용');
     }
-    // 못 찾아도 "(현재 연결된 API 사용)" 기본값이 있으므로 오류 없음
 }
 
 function bindPopupEvents() {
@@ -249,8 +183,6 @@ function bindPopupEvents() {
         SillyTavern.getContext().saveSettingsDebounced();
     });
     document.getElementById('firstmsg-result')?.addEventListener('input', updateCharCount);
-
-    // 오버레이 배경 클릭 시 닫기
     document.getElementById('firstmsg-popup-overlay')?.addEventListener('click', (e) => {
         if (e.target.id === 'firstmsg-popup-overlay') closePopup();
     });
@@ -260,16 +192,27 @@ function bindPopupEvents() {
 async function switchProfileIfNeeded() {
     const profileId = getVal('firstmsg-profile-select');
     if (!profileId) return;
+
+    // ST의 연결 프로필 드롭다운을 찾아서 변경 + change 이벤트 발생
+    // ST는 connection-manager 확장의 select로 프로필을 전환함
+    const stProfileSelects = [
+        ...document.querySelectorAll('select')
+    ].filter(sel => {
+        const opts = [...sel.options];
+        return opts.some(o => o.value === profileId);
+    });
+
+    for (const sel of stProfileSelects) {
+        if (sel.id === 'firstmsg-profile-select') continue;
+        sel.value = profileId;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 400));
+        console.log('[GreetingLadys] 프로필 전환:', profileId, '→ select#' + sel.id);
+        return;
+    }
+
+    // fallback: REST API
     try {
-        // 방법 1: ST context 함수
-        const ctx = SillyTavern.getContext();
-        if (typeof ctx.loadConnectionProfile === 'function') {
-            await ctx.loadConnectionProfile(profileId);
-            return;
-        }
-    } catch(e) {}
-    try {
-        // 방법 2: REST API
         await fetch('/api/connection-profiles/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -281,10 +224,7 @@ async function switchProfileIfNeeded() {
 // ── STEP 1: 씬 예시 5개 생성 ─────────────────────────────────
 async function handleGenerateCandidates() {
     const charInfo = getCurrentCharInfo();
-    if (!charInfo?.desc?.trim()) {
-        toastr.error('캐릭터를 먼저 선택해주세요!');
-        return;
-    }
+    if (!charInfo?.desc?.trim()) { toastr.error('캐릭터를 먼저 선택해주세요!'); return; }
     const userNote = getVal('firstmsg-user-note');
     const korean   = getChecked('firstmsg-korean');
 
@@ -294,10 +234,7 @@ async function handleGenerateCandidates() {
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean
-            ? '반드시 한국어로 작성하세요.'
-            : 'Write in the same language as the character info.';
-
+        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the character info.';
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 씬 아이디어를 제안하는 작가입니다.
 
 [규칙]
@@ -318,9 +255,7 @@ async function handleGenerateCandidates() {
         const raw = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
         const jsonStr = raw.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(jsonStr);
-        const candidates = parsed.candidates ?? parsed;
-
-        renderCandidates(candidates);
+        renderCandidates(parsed.candidates ?? parsed);
         toastr.success('씬 아이디어 5개 생성 완료!');
     } catch(err) {
         console.error('[' + MODULE_NAME + ']', err);
@@ -344,7 +279,7 @@ function renderCandidates(candidates) {
     document.getElementById('firstmsg-candidates-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ── STEP 2: 선택한 씬 → 풀버전 ───────────────────────────────
+// ── STEP 2: 씬 → 풀버전 ──────────────────────────────────────
 async function handleSelectCandidate(candidateText, idx) {
     const charInfo = getCurrentCharInfo();
     const userNote = getVal('firstmsg-user-note');
@@ -358,10 +293,7 @@ async function handleSelectCandidate(candidateText, idx) {
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean
-            ? '반드시 한국어로 작성하세요.'
-            : 'Write in the same language as the character info.';
-
+        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the character info.';
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지를 전문으로 대필하는 작가입니다.
 
 [서술 규칙 — 반드시 준수]
@@ -407,18 +339,15 @@ async function handleSelectCandidate(candidateText, idx) {
 async function handleApplyGreeting() {
     const text = document.getElementById('firstmsg-result')?.value?.trim();
     if (!text) return;
-
     const ctx = SillyTavern.getContext();
     const char = ctx.characters?.[ctx.characterId];
     if (!char) { toastr.error('캐릭터를 선택해주세요.'); return; }
-
     try {
         if (!Array.isArray(char.data?.alternate_greetings)) {
             if (!char.data) char.data = {};
             char.data.alternate_greetings = [];
         }
         char.data.alternate_greetings.push(text);
-
         const formData = new FormData();
         formData.append('avatar_url', char.avatar);
         formData.append('ch_name', char.name);
@@ -430,12 +359,9 @@ async function handleApplyGreeting() {
         formData.append('world', char.world ?? '');
         formData.append('json_data', JSON.stringify(char.data));
         formData.append('overwrite_action', 'true');
-
         const res = await fetch('/api/characters/edit', { method: 'POST', body: formData });
         if (!res.ok) throw new Error('저장 실패: ' + res.status);
-
         ctx.eventSource.emit(ctx.event_types.CHARACTER_EDITED, { detail: { id: ctx.characterId } });
-
         toastr.success('그리팅에 추가되었습니다!');
         closePopup();
     } catch(err) {
@@ -453,11 +379,7 @@ function getCurrentCharInfo() {
     if (char.description) parts.push(char.description.trim());
     if (char.personality) parts.push('성격: ' + char.personality.trim());
     if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
-    return {
-        desc: parts.join('\n\n'),
-        firstName: char.first_mes ?? '',
-        name: char.name ?? '',
-    };
+    return { desc: parts.join('\n\n'), firstName: char.first_mes ?? '', name: char.name ?? '' };
 }
 
 function setLoading(on, msg) {
@@ -467,19 +389,16 @@ function setLoading(on, msg) {
     const regen = document.getElementById('firstmsg-regen-btn');
     if (regen) regen.disabled = on;
 }
-
 function updateCharCount() {
     const r = document.getElementById('firstmsg-result');
     document.getElementById('firstmsg-char-count').textContent = r.value.length + '자';
 }
-
 async function handleCopy() {
     const v = document.getElementById('firstmsg-result')?.value;
     if (!v) return;
     await navigator.clipboard.writeText(v);
     toastr.success('클립보드에 복사했습니다!');
 }
-
 function handleClear() {
     setVal('firstmsg-user-note', '');
     setVal('firstmsg-result', '');
@@ -489,11 +408,9 @@ function handleClear() {
     document.getElementById('firstmsg-result-area').style.display = 'none';
     toastr.info('초기화되었습니다.');
 }
-
 function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function on(id, ev, fn) { document.getElementById(id)?.addEventListener(ev, fn); }
 function getVal(id) { return document.getElementById(id)?.value ?? ''; }
 function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v ?? ''; }
@@ -502,17 +419,13 @@ function setChecked(id, v) { const el = document.getElementById(id); if (el) el.
 
 jQuery(async () => {
     const { eventSource, event_types } = SillyTavern.getContext();
-
     eventSource.on(event_types.APP_READY, () => {
         injectPencilButton();
         const observer = new MutationObserver(() => {
-            if (!document.getElementById('firstmsg-pencil-btn')) {
-                injectPencilButton();
-            }
+            if (!document.getElementById('firstmsg-pencil-btn')) injectPencilButton();
         });
         observer.observe(document.body, { childList: true, subtree: true });
     });
-
     eventSource.on(event_types.CHARACTER_SELECTED, () => {
         setTimeout(injectPencilButton, 300);
     });
