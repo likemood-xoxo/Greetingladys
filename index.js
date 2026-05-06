@@ -78,7 +78,6 @@ function initPopup() {
     if (document.getElementById('firstmsg-popup-overlay')) return;
     document.body.insertAdjacentHTML('beforeend', POPUP_HTML);
     setChecked('firstmsg-korean', getSettings().korean);
-    refreshProfiles();
     bindPopupEvents();
 }
 
@@ -95,9 +94,10 @@ function openPopup() {
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
     document.getElementById('firstmsg-loading').style.display = 'none';
-    // 팝업 열릴 때마다 프로필 최신화
-    refreshProfiles();
-    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
+    // 프로필 최신화 후 팝업 표시
+    refreshProfiles().then(() => {
+        document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
+    });
 }
 
 function closePopup() {
@@ -112,7 +112,12 @@ function injectPencilButton() {
     const altBtn =
         document.querySelector('#set_first_mes') ??
         [...document.querySelectorAll('button, .menu_button, [title]')]
-            .find(el => el.textContent?.trim() === '대체. 첫 메시지' || el.title === '대체. 첫 메시지' || el.id?.includes('alt') || el.id?.includes('first_mes'));
+            .find(el =>
+                el.textContent?.trim() === '대체. 첫 메시지' ||
+                el.title === '대체. 첫 메시지' ||
+                el.id?.includes('alt') ||
+                el.id?.includes('first_mes')
+            );
 
     if (!altBtn) return;
 
@@ -130,7 +135,7 @@ function injectPencilButton() {
     altBtn.insertAdjacentElement('afterend', pencilBtn);
 }
 
-// ── 프로필 목록 ──────────────────────────────────────────────
+// ── 프로필 목록 로드 ─────────────────────────────────────────
 async function refreshProfiles() {
     const select = document.getElementById('firstmsg-profile-select');
     if (!select) return;
@@ -138,41 +143,70 @@ async function refreshProfiles() {
 
     let profiles = null;
 
-    // 1순위: ST REST API
+    // 방법 1: ST settings에서 직접 읽기 (가장 안정적)
     try {
-        const res = await fetch('/api/connection-profiles/get-all', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{}',
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length) profiles = data;
+        const ctx = SillyTavern.getContext();
+        // ST 1.12+ 방식
+        if (typeof ctx.getConnectionProfiles === 'function') {
+            profiles = ctx.getConnectionProfiles();
         }
     } catch(e) {}
 
-    // 2순위: context
+    // 방법 2: /api/settings/get 으로 전체 설정 가져오기
     if (!profiles?.length) {
-        const ctx = SillyTavern.getContext();
-        profiles =
-            ctx.connection_profiles ??
-            ctx.connectionProfiles ??
-            ctx.settings?.connection_profiles ??
-            ctx.settings?.connectionProfiles ??
-            null;
+        try {
+            const res = await fetch('/api/settings/get', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                // connection_profiles는 settings 최상위 또는 power_user 안에 있음
+                profiles =
+                    data.connection_profiles ??
+                    data.power_user?.connection_profiles ??
+                    null;
+            }
+        } catch(e) {}
     }
 
-    // 3순위: power_user
+    // 방법 3: /api/connection-profiles/get-all
     if (!profiles?.length) {
-        try { profiles = window.power_user?.connection_profiles ?? null; } catch(e) {}
+        try {
+            const res = await fetch('/api/connection-profiles/get-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length) profiles = data;
+            }
+        } catch(e) {}
     }
 
-    // 4순위: window 전체 탐색
+    // 방법 4: context 객체 직접 탐색
+    if (!profiles?.length) {
+        try {
+            const ctx = SillyTavern.getContext();
+            profiles =
+                ctx.connection_profiles ??
+                ctx.connectionProfiles ??
+                ctx.settings?.connection_profiles ??
+                ctx.settings?.connectionProfiles ??
+                window.power_user?.connection_profiles ??
+                null;
+        } catch(e) {}
+    }
+
+    // 방법 5: window 전체 탐색
     if (!profiles?.length) {
         try {
             for (const key of Object.keys(window)) {
                 const val = window[key];
-                if (val && typeof val === 'object' && Array.isArray(val.connection_profiles) && val.connection_profiles.length) {
+                if (val && typeof val === 'object' && !Array.isArray(val) &&
+                    Array.isArray(val.connection_profiles) && val.connection_profiles.length) {
                     profiles = val.connection_profiles;
                     break;
                 }
@@ -187,15 +221,11 @@ async function refreshProfiles() {
             opt.textContent = p.name ?? p.id ?? String(p);
             select.appendChild(opt);
         }
-    } else {
-        const noOpt = document.createElement('option');
-        noOpt.disabled = true;
-        noOpt.textContent = '(저장된 프로필 없음 — 현재 API 사용)';
-        select.appendChild(noOpt);
+        // 마지막으로 저장된 프로필 복원
+        const saved = getSettings().lastProfile;
+        if (saved) select.value = saved;
     }
-
-    const saved = getSettings().lastProfile;
-    if (saved) select.value = saved;
+    // 못 찾아도 "(현재 연결된 API 사용)" 기본값이 있으므로 오류 없음
 }
 
 function bindPopupEvents() {
@@ -226,10 +256,20 @@ function bindPopupEvents() {
     });
 }
 
+// ── 프로필 전환 ──────────────────────────────────────────────
 async function switchProfileIfNeeded() {
     const profileId = getVal('firstmsg-profile-select');
     if (!profileId) return;
     try {
+        // 방법 1: ST context 함수
+        const ctx = SillyTavern.getContext();
+        if (typeof ctx.loadConnectionProfile === 'function') {
+            await ctx.loadConnectionProfile(profileId);
+            return;
+        }
+    } catch(e) {}
+    try {
+        // 방법 2: REST API
         await fetch('/api/connection-profiles/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -460,24 +500,20 @@ function setVal(id, v) { const el = document.getElementById(id); if (el) el.valu
 function getChecked(id) { return document.getElementById(id)?.checked ?? false; }
 function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
 
-function tryInjectPencilButton() {
-    injectPencilButton();
-}
-
 jQuery(async () => {
     const { eventSource, event_types } = SillyTavern.getContext();
 
     eventSource.on(event_types.APP_READY, () => {
-        tryInjectPencilButton();
+        injectPencilButton();
         const observer = new MutationObserver(() => {
             if (!document.getElementById('firstmsg-pencil-btn')) {
-                tryInjectPencilButton();
+                injectPencilButton();
             }
         });
         observer.observe(document.body, { childList: true, subtree: true });
     });
 
     eventSource.on(event_types.CHARACTER_SELECTED, () => {
-        setTimeout(tryInjectPencilButton, 300);
+        setTimeout(injectPencilButton, 300);
     });
 });
