@@ -47,28 +47,12 @@
 .firstmsg-checkbox-label input[type="checkbox"] {
   cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #9b8fd4); width: 14px; height: 14px;
 }
-
-/* ── 버튼 로우 (가로 배치 수정) ── */
-.firstmsg-btn-row { 
-  display: flex; 
-  gap: 8px; 
-  flex-direction: row; /* 가로 방향 강제 */
-  align-items: stretch;
-}
-.firstmsg-btn-row .menu_button { 
-  flex: 1; 
-  min-width: 0; /* min-width 해제하여 가로로 구겨넣기 허용 */
-  font-size: 0.84em; 
-  padding: 8px 5px; 
-  text-align: center;
-  white-space: nowrap; /* 텍스트 줄바꿈 방지 */
-}
-
+.firstmsg-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.firstmsg-btn-row .menu_button { flex: 1; min-width: 90px; font-size: 0.84em; padding: 6px 10px; }
 .firstmsg-main-btn { background: linear-gradient(135deg, #6a4fa3, #9b6fd4) !important; font-weight: 700 !important; }
 .firstmsg-main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .firstmsg-apply-btn { background: linear-gradient(135deg, #2e7d52, #3fa373) !important; font-weight: 700 !important; }
 .firstmsg-small-btn { padding: 2px 8px !important; font-size: 0.78em !important; flex: none !important; min-width: unset !important; }
-
 #firstmsg-loading { display: flex; align-items: center; gap: 10px; color: var(--SmartThemeBodyColor, #ccc); font-style: italic; padding: 4px 0; }
 .firstmsg-spinner {
   width: 17px; height: 17px;
