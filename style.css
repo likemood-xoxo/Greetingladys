@@ -47,21 +47,8 @@
 .firstmsg-checkbox-label input[type="checkbox"] {
   cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #9b8fd4); width: 14px; height: 14px;
 }
-
-/* ── 버튼 로우 (가로 배치 수정됨) ── */
-.firstmsg-btn-row { 
-  display: flex; 
-  gap: 8px; 
-  flex-wrap: nowrap !important; /* 줄바꿈 금지 */
-}
-.firstmsg-btn-row .menu_button { 
-  flex: 1; 
-  min-width: 0 !important; /* 고정 너비 해제하여 가로로 정렬 */
-  font-size: 0.84em; 
-  padding: 6px 10px; 
-  white-space: nowrap; /* 텍스트 줄바꿈 방지 */
-}
-
+.firstmsg-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.firstmsg-btn-row .menu_button { flex: 1; min-width: 90px; font-size: 0.84em; padding: 6px 10px; }
 .firstmsg-main-btn { background: linear-gradient(135deg, #6a4fa3, #9b6fd4) !important; font-weight: 700 !important; }
 .firstmsg-main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .firstmsg-apply-btn { background: linear-gradient(135deg, #2e7d52, #3fa373) !important; font-weight: 700 !important; }
