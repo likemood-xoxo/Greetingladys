@@ -356,38 +356,10 @@ async function handleApplyGreeting() {
         }
         char.data.alternate_greetings.push(text);
 
-        // ST v1.12+ saveCharacter API
-        if (typeof ctx.saveCharacter === 'function') {
-            await ctx.saveCharacter(char);
-        } else {
-            // REST API fallback
-            const response = await fetch('/api/characters/edit-attribute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    avatar_url: char.avatar,
-                    ch_name: char.name,
-                    field: 'data.alternate_greetings',
-                    value: char.data.alternate_greetings,
-                }),
-            });
-            if (!response.ok) {
-                // 최후 수단: /edit 엔드포인트
-                const formData = new FormData();
-                formData.append('avatar_url', char.avatar);
-                formData.append('ch_name', char.name);
-                formData.append('description', char.description ?? '');
-                formData.append('personality', char.personality ?? '');
-                formData.append('scenario', char.scenario ?? '');
-                formData.append('first_mes', char.first_mes ?? '');
-                formData.append('mes_example', char.mes_example ?? '');
-                formData.append('world', char.world ?? '');
-                formData.append('json_data', JSON.stringify(char.data));
-                formData.append('overwrite_action', 'true');
-                const r2 = await fetch('/api/characters/edit', { method: 'POST', body: formData });
-                if (!r2.ok) throw new Error('저장 실패: ' + r2.status);
-            }
-        }
+        // ── 방법 1: ST 내부 jQuery trigger (가장 안전, CSRF 토큰 자동 처리)
+        // ST가 캐릭터 저장할 때 쓰는 내부 이벤트 방식
+        const saved = await trySaveViaSTInternal(ctx, char);
+        if (!saved) throw new Error('저장에 실패했습니다. ST 버전을 확인해주세요.');
 
         ctx.eventSource.emit(ctx.event_types.CHARACTER_EDITED, { detail: { id: ctx.characterId } });
         toastr.success('그리팅에 추가되었습니다!');
@@ -396,6 +368,63 @@ async function handleApplyGreeting() {
         console.error('[' + MODULE_NAME + ']', err);
         toastr.error('추가 실패: ' + (err.message ?? err));
     }
+}
+
+async function trySaveViaSTInternal(ctx, char) {
+    // ── 방법 1: window.saveCharacter (ST 전역 함수)
+    if (typeof window.saveCharacter === 'function') {
+        try { await window.saveCharacter(char.avatar, char); return true; } catch(e) { console.warn('[GreetingLadys] saveCharacter 실패:', e); }
+    }
+
+    // ── 방법 2: jQuery #create_button trigger (ST가 내부적으로 쓰는 저장 트리거)
+    // ST의 캐릭터 저장은 실제로 폼 제출 방식 — 필드를 채우고 트리거
+    try {
+        // ST 캐릭터 편집 폼 필드에 현재 캐릭터 데이터 반영
+        if ($('#char_name_pole').length) {
+            const altGreetings = char.data?.alternate_greetings ?? [];
+            // ST의 alternate_greetings 내부 배열에 직접 반영 후 저장 이벤트
+            if (typeof window.saveCharacterDebounced === 'function') {
+                window.saveCharacterDebounced();
+                return true;
+            }
+        }
+    } catch(e) { console.warn('[GreetingLadys] jQuery trigger 실패:', e); }
+
+    // ── 방법 3: /api/characters/edit-attribute (ST 1.11+)
+    try {
+        const res = await fetch('/api/characters/edit-attribute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                avatar_url: char.avatar,
+                ch_name: char.name,
+                field: 'data.alternate_greetings',
+                value: char.data.alternate_greetings,
+            }),
+        });
+        if (res.ok) return true;
+        console.warn('[GreetingLadys] edit-attribute 응답:', res.status);
+    } catch(e) { console.warn('[GreetingLadys] edit-attribute 실패:', e); }
+
+    // ── 방법 4: /api/characters/edit (multipart/form-data)
+    try {
+        const formData = new FormData();
+        formData.append('avatar_url', char.avatar);
+        formData.append('ch_name', char.name);
+        formData.append('description', char.description ?? '');
+        formData.append('personality', char.personality ?? '');
+        formData.append('scenario', char.scenario ?? '');
+        formData.append('first_mes', char.first_mes ?? '');
+        formData.append('mes_example', char.mes_example ?? '');
+        formData.append('world', char.world ?? '');
+        formData.append('json_data', JSON.stringify(char.data));
+        formData.append('overwrite_action', 'true');
+        const res = await fetch('/api/characters/edit', { method: 'POST', body: formData });
+        if (res.ok) return true;
+        console.warn('[GreetingLadys] /edit 응답:', res.status);
+    } catch(e) { console.warn('[GreetingLadys] /edit 실패:', e); }
+
+    return false;
 }
 
 function getCurrentCharInfo() {
