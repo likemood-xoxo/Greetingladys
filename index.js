@@ -1,7 +1,7 @@
 const MODULE_NAME = 'Greetingladys';
 
 const DEFAULT_SETTINGS = Object.freeze({
-    userNote: '', korean: true, lastProfile: '',
+    lastProfile: '',
 });
 
 function getSettings() {
@@ -77,12 +77,12 @@ const POPUP_HTML = `
 function initPopup() {
     if (document.getElementById('firstmsg-popup-overlay')) return;
     document.body.insertAdjacentHTML('beforeend', POPUP_HTML);
-    setChecked('firstmsg-korean', getSettings().korean);
     bindPopupEvents();
 }
 
 function openPopup() {
     initPopup();
+    // 열 때마다 완전 초기화 — 한국어 체크는 항상 false(영어)로
     setVal('firstmsg-user-note', '');
     setVal('firstmsg-result', '');
     setChecked('firstmsg-korean', false);
@@ -105,7 +105,6 @@ function closePopup() {
 // ── ✒️ 버튼 주입 ─────────────────────────────────────────────
 function injectPencilButton() {
     if (document.getElementById('firstmsg-pencil-btn')) return;
-
     const altBtn =
         document.querySelector('#set_first_mes') ??
         [...document.querySelectorAll('button, .menu_button, [title]')]
@@ -115,9 +114,7 @@ function injectPencilButton() {
                 el.id?.includes('alt') ||
                 el.id?.includes('first_mes')
             );
-
     if (!altBtn) return;
-
     const pencilBtn = document.createElement('button');
     pencilBtn.id = 'firstmsg-pencil-btn';
     pencilBtn.className = 'menu_button firstmsg-pencil-btn';
@@ -128,7 +125,6 @@ function injectPencilButton() {
         e.stopPropagation();
         openPopup();
     });
-
     altBtn.insertAdjacentElement('afterend', pencilBtn);
 }
 
@@ -136,12 +132,9 @@ function injectPencilButton() {
 function refreshProfiles() {
     const mySelect = document.getElementById('firstmsg-profile-select');
     if (!mySelect) return;
-
     while (mySelect.options.length > 1) mySelect.remove(1);
 
     const ctx = SillyTavern.getContext();
-
-    // ST가 프로필을 저장하는 실제 경로
     const profiles =
         ctx.extensionSettings?.connectionManager?.profiles ??
         ctx.extensionSettings?.['connection-manager']?.profiles ??
@@ -156,9 +149,7 @@ function refreshProfiles() {
             mySelect.appendChild(opt);
         }
         if (saved) mySelect.value = saved;
-        console.log('[GreetingLadys] 프로필 로드 완료:', mySelect.options.length - 1, '개');
-    } else {
-        console.log('[GreetingLadys] 프로필 없음 — 현재 API 사용');
+        console.log('[GreetingLadys] 프로필 로드:', mySelect.options.length - 1, '개');
     }
 }
 
@@ -174,10 +165,6 @@ function bindPopupEvents() {
         document.getElementById('firstmsg-result-area').style.display = 'none';
         document.getElementById('firstmsg-candidates-area').style.display = 'flex';
     });
-    document.getElementById('firstmsg-korean')?.addEventListener('change', () => {
-        getSettings().korean = getChecked('firstmsg-korean');
-        SillyTavern.getContext().saveSettingsDebounced();
-    });
     document.getElementById('firstmsg-profile-select')?.addEventListener('change', () => {
         getSettings().lastProfile = getVal('firstmsg-profile-select');
         SillyTavern.getContext().saveSettingsDebounced();
@@ -188,37 +175,50 @@ function bindPopupEvents() {
     });
 }
 
-// ── 프로필 전환 ──────────────────────────────────────────────
-async function switchProfileIfNeeded() {
+// ── 프로필 기반 generateRaw 호출 ─────────────────────────────
+// 전역 API 설정을 건드리지 않고, 선택한 프로필 정보만 추출해서 사용
+async function generateWithProfile(systemPrompt, prompt) {
+    const ctx = SillyTavern.getContext();
     const profileId = getVal('firstmsg-profile-select');
-    if (!profileId) return;
 
-    // ST의 연결 프로필 드롭다운을 찾아서 변경 + change 이벤트 발생
-    // ST는 connection-manager 확장의 select로 프로필을 전환함
-    const stProfileSelects = [
-        ...document.querySelectorAll('select')
-    ].filter(sel => {
-        const opts = [...sel.options];
-        return opts.some(o => o.value === profileId);
-    });
-
-    for (const sel of stProfileSelects) {
-        if (sel.id === 'firstmsg-profile-select') continue;
-        sel.value = profileId;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-        await new Promise(r => setTimeout(r, 400));
-        console.log('[GreetingLadys] 프로필 전환:', profileId, '→ select#' + sel.id);
-        return;
+    // 프로필 미선택 → 현재 연결된 API 그대로 사용
+    if (!profileId) {
+        return await ctx.generateRaw({ systemPrompt, prompt });
     }
 
-    // fallback: REST API
+    // 선택한 프로필 정보 찾기
+    const profiles =
+        ctx.extensionSettings?.connectionManager?.profiles ??
+        ctx.extensionSettings?.['connection-manager']?.profiles ??
+        [];
+    const profile = profiles.find(p => (p.id ?? p.name) === profileId);
+
+    if (!profile) {
+        // 프로필 못 찾으면 현재 API 그대로
+        return await ctx.generateRaw({ systemPrompt, prompt });
+    }
+
+    // 현재 설정 백업
+    const origSettings = {
+        main_api: ctx.main_api,
+        api_server: ctx.api_server,
+        openai_model: ctx.openai_model,
+    };
+
     try {
-        await fetch('/api/connection-profiles/activate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: profileId }),
-        });
-    } catch(e) {}
+        // 프로필 설정 임시 적용 (전역 변수만 임시 변경, 저장 안 함)
+        if (profile.api)          ctx.main_api      = profile.api;
+        if (profile.api_server)   ctx.api_server    = profile.api_server;
+        if (profile.openai_model) ctx.openai_model  = profile.openai_model;
+
+        const result = await ctx.generateRaw({ systemPrompt, prompt });
+        return result;
+    } finally {
+        // 반드시 원래 설정 복원
+        ctx.main_api      = origSettings.main_api;
+        ctx.api_server    = origSettings.api_server;
+        ctx.openai_model  = origSettings.openai_model;
+    }
 }
 
 // ── STEP 1: 씬 예시 5개 생성 ─────────────────────────────────
@@ -228,13 +228,15 @@ async function handleGenerateCandidates() {
     const userNote = getVal('firstmsg-user-note');
     const korean   = getChecked('firstmsg-korean');
 
-    await switchProfileIfNeeded();
     setLoading(true, '예시 5개 생성 중...');
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the character info.';
+        const langLine = korean
+            ? '반드시 한국어로 작성하세요.'
+            : 'Write in English.';
+
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 씬 아이디어를 제안하는 작가입니다.
 
 [규칙]
@@ -252,7 +254,7 @@ async function handleGenerateCandidates() {
         if (userNote.trim())    userPrompt += '[원하는 분위기 / 추가 요청]\n' + userNote.trim() + '\n\n';
         userPrompt += '완전히 새로운 씬 아이디어 5개를 JSON으로 출력하세요.';
 
-        const raw = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
+        const raw = await generateWithProfile(systemPrompt, userPrompt);
         const jsonStr = raw.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         renderCandidates(parsed.candidates ?? parsed);
@@ -288,12 +290,14 @@ async function handleSelectCandidate(candidateText, idx) {
     document.querySelectorAll('.firstmsg-candidate-card').forEach((c, i) =>
         c.classList.toggle('firstmsg-candidate-selected', i === idx));
 
-    await switchProfileIfNeeded();
     setLoading(true, '풀버전 작성 중...');
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in the same language as the character info.';
+        const langLine = korean
+            ? '반드시 한국어로 작성하세요.'
+            : 'Write in English.';
+
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지를 전문으로 대필하는 작가입니다.
 
 [서술 규칙 — 반드시 준수]
@@ -319,7 +323,7 @@ async function handleSelectCandidate(candidateText, idx) {
         if (userNote.trim())    userPrompt += '[원하는 분위기]\n' + userNote.trim() + '\n\n';
         userPrompt += '[선택한 씬 아이디어]\n' + candidateText + '\n\n이 씬을 풀버전 퍼스트 메시지로 작성해주세요.';
 
-        const result = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
+        const result = await generateWithProfile(systemPrompt, userPrompt);
         if (!result?.trim()) { toastr.error('생성 결과가 비어있습니다.'); return; }
 
         setVal('firstmsg-result', result.trim());
@@ -339,28 +343,52 @@ async function handleSelectCandidate(candidateText, idx) {
 async function handleApplyGreeting() {
     const text = document.getElementById('firstmsg-result')?.value?.trim();
     if (!text) return;
+
     const ctx = SillyTavern.getContext();
     const char = ctx.characters?.[ctx.characterId];
     if (!char) { toastr.error('캐릭터를 선택해주세요.'); return; }
+
     try {
-        if (!Array.isArray(char.data?.alternate_greetings)) {
-            if (!char.data) char.data = {};
+        // alternate_greetings 배열에 추가
+        if (!char.data) char.data = {};
+        if (!Array.isArray(char.data.alternate_greetings)) {
             char.data.alternate_greetings = [];
         }
         char.data.alternate_greetings.push(text);
-        const formData = new FormData();
-        formData.append('avatar_url', char.avatar);
-        formData.append('ch_name', char.name);
-        formData.append('description', char.description ?? '');
-        formData.append('personality', char.personality ?? '');
-        formData.append('scenario', char.scenario ?? '');
-        formData.append('first_mes', char.first_mes ?? '');
-        formData.append('mes_example', char.mes_example ?? '');
-        formData.append('world', char.world ?? '');
-        formData.append('json_data', JSON.stringify(char.data));
-        formData.append('overwrite_action', 'true');
-        const res = await fetch('/api/characters/edit', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('저장 실패: ' + res.status);
+
+        // ST v1.12+ saveCharacter API
+        if (typeof ctx.saveCharacter === 'function') {
+            await ctx.saveCharacter(char);
+        } else {
+            // REST API fallback
+            const response = await fetch('/api/characters/edit-attribute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    avatar_url: char.avatar,
+                    ch_name: char.name,
+                    field: 'data.alternate_greetings',
+                    value: char.data.alternate_greetings,
+                }),
+            });
+            if (!response.ok) {
+                // 최후 수단: /edit 엔드포인트
+                const formData = new FormData();
+                formData.append('avatar_url', char.avatar);
+                formData.append('ch_name', char.name);
+                formData.append('description', char.description ?? '');
+                formData.append('personality', char.personality ?? '');
+                formData.append('scenario', char.scenario ?? '');
+                formData.append('first_mes', char.first_mes ?? '');
+                formData.append('mes_example', char.mes_example ?? '');
+                formData.append('world', char.world ?? '');
+                formData.append('json_data', JSON.stringify(char.data));
+                formData.append('overwrite_action', 'true');
+                const r2 = await fetch('/api/characters/edit', { method: 'POST', body: formData });
+                if (!r2.ok) throw new Error('저장 실패: ' + r2.status);
+            }
+        }
+
         ctx.eventSource.emit(ctx.event_types.CHARACTER_EDITED, { detail: { id: ctx.characterId } });
         toastr.success('그리팅에 추가되었습니다!');
         closePopup();
@@ -379,7 +407,6 @@ function getCurrentCharInfo() {
     if (char.description) parts.push(char.description.trim());
     if (char.personality) parts.push('성격: ' + char.personality.trim());
     if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
-    // 페르소나 이름은 항상 {{user}}로 고정
     parts.push('유저(상대방) 이름: {{user}}');
     return { desc: parts.join('\n\n'), firstName: char.first_mes ?? '', name: char.name ?? '' };
 }
@@ -404,6 +431,7 @@ async function handleCopy() {
 function handleClear() {
     setVal('firstmsg-user-note', '');
     setVal('firstmsg-result', '');
+    setChecked('firstmsg-korean', false);
     const list = document.getElementById('firstmsg-candidates-list');
     if (list) list.innerHTML = '';
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
