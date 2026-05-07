@@ -1,282 +1,472 @@
-/* ── 기존 패널 스타일 (팝업 내부용) ── */
-.firstmsg-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 8px 2px 4px;
-  font-size: 0.87em;
-}
-.firstmsg-section { display: flex; flex-direction: column; gap: 5px; }
-.firstmsg-section > label,
-.firstmsg-row-label > label {
-  font-weight: 600;
-  color: var(--SmartThemeBodyColor, #ccc);
-  font-size: 0.9em;
-}
-.firstmsg-row-label {
-  display: flex; align-items: center;
-  justify-content: space-between; gap: 8px;
-}
-.firstmsg-hint { font-size: 0.78em; color: var(--SmartThemeEmColor, #888); font-style: italic; }
-.firstmsg-panel textarea {
-  background: var(--SmartThemeBlurTintColor, rgba(0,0,0,0.3));
-  color: var(--SmartThemeBodyColor, #eee);
-  border: 1px solid var(--SmartThemeBorderColor, #555);
-  border-radius: 6px; padding: 8px 10px;
-  font-size: 0.88em; resize: vertical; min-height: 75px;
-  font-family: inherit; line-height: 1.55;
-  width: 100%; box-sizing: border-box;
-}
-.firstmsg-panel textarea:focus { outline: none; border-color: var(--SmartThemeQuoteColor, #9b8fd4); }
-#firstmsg-result { min-height: 130px; border-color: var(--SmartThemeQuoteColor, #9b6fd4) !important; }
-.firstmsg-profile-row { display: flex; gap: 6px; align-items: center; }
-.firstmsg-profile-row select {
-  flex: 1;
-  background: var(--SmartThemeBlurTintColor, rgba(0,0,0,0.3));
-  color: var(--SmartThemeBodyColor, #eee);
-  border: 1px solid var(--SmartThemeBorderColor, #555);
-  border-radius: 6px; padding: 5px 8px;
-  font-size: 0.88em; font-family: inherit;
-}
-.firstmsg-options { flex-direction: row !important; flex-wrap: wrap; gap: 10px 18px; padding: 4px 0; }
-.firstmsg-checkbox-label {
-  display: flex; align-items: center; gap: 5px; cursor: pointer;
-  font-weight: normal !important; color: var(--SmartThemeBodyColor, #ccc) !important;
-  font-size: 0.88em; user-select: none;
-}
-.firstmsg-checkbox-label input[type="checkbox"] {
-  cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #9b8fd4); width: 14px; height: 14px;
-}
-.firstmsg-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.firstmsg-btn-row .menu_button { flex: 1; min-width: 90px; font-size: 0.84em; padding: 6px 10px; }
-.firstmsg-main-btn { background: linear-gradient(135deg, #6a4fa3, #9b6fd4) !important; font-weight: 700 !important; }
-.firstmsg-main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.firstmsg-apply-btn { background: linear-gradient(135deg, #2e7d52, #3fa373) !important; font-weight: 700 !important; }
-.firstmsg-small-btn { padding: 2px 8px !important; font-size: 0.78em !important; flex: none !important; min-width: unset !important; white-space: nowrap !important; }
-#firstmsg-loading { display: flex; align-items: center; gap: 10px; color: var(--SmartThemeBodyColor, #ccc); font-style: italic; padding: 4px 0; }
-.firstmsg-spinner {
-  width: 17px; height: 17px;
-  border: 2.5px solid rgba(155,111,212,0.25);
-  border-top-color: #9b6fd4; border-radius: 50%;
-  animation: firstmsg-spin 0.75s linear infinite; flex-shrink: 0;
-}
-@keyframes firstmsg-spin { to { transform: rotate(360deg); } }
+const MODULE_NAME = 'Greetingladys';
 
-/* ── 예시 카드 ── */
-#firstmsg-candidates-area {
-  display: flex; flex-direction: column; gap: 8px;
-  border-top: 1px solid var(--SmartThemeBorderColor, #444); padding-top: 10px;
-}
-.firstmsg-candidates-header {
-  display: flex; align-items: center; justify-content: space-between;
-}
-.firstmsg-candidates-header label {
-  font-weight: 600; color: var(--SmartThemeBodyColor, #ccc);
-}
-#firstmsg-candidates-list { display: flex; flex-direction: column; gap: 7px; }
-.firstmsg-candidate-card {
-  display: flex; gap: 10px; align-items: flex-start;
-  background: var(--SmartThemeBlurTintColor, rgba(0,0,0,0.25));
-  border: 1px solid var(--SmartThemeBorderColor, #555);
-  border-radius: 8px; padding: 10px 12px;
-  cursor: pointer; transition: border-color 0.2s, background 0.2s;
-}
-.firstmsg-candidate-card:hover {
-  border-color: var(--SmartThemeQuoteColor, #9b8fd4);
-  background: rgba(155,111,212,0.08);
-}
-.firstmsg-candidate-selected {
-  border-color: var(--SmartThemeQuoteColor, #9b6fd4) !important;
-  background: rgba(155,111,212,0.15) !important;
-}
-.firstmsg-candidate-num {
-  font-weight: 700; color: var(--SmartThemeQuoteColor, #9b8fd4);
-  font-size: 0.95em; flex-shrink: 0; min-width: 16px;
-}
-.firstmsg-candidate-text { color: var(--SmartThemeBodyColor, #ddd); font-size: 0.87em; line-height: 1.55; }
+const DEFAULT_SETTINGS = Object.freeze({
+    userNote: '', korean: true, lastProfile: '',
+});
 
-/* ── 결과 영역 ── */
-#firstmsg-result-area {
-  display: flex; flex-direction: column; gap: 8px;
-  border-top: 1px solid var(--SmartThemeBorderColor, #444); padding-top: 10px;
-}
-.firstmsg-result-header { display: flex; align-items: center; justify-content: space-between; }
-.firstmsg-result-header label { font-weight: 600; color: var(--SmartThemeQuoteColor, #9b8fd4) !important; }
-.firstmsg-char-count { font-size: 0.78em; color: var(--SmartThemeEmColor, #888); }
-
-/* ── ✒️ 펜슬 버튼 ── */
-.firstmsg-pencil-btn {
-  padding: 2px 7px !important;
-  font-size: 0.85em !important;
-  min-width: unset !important;
-  flex: none !important;
-  opacity: 0.85;
-  transition: opacity 0.15s;
-}
-.firstmsg-pencil-btn:hover { opacity: 1; }
-
-/* ── 팝업 오버레이 ── */
-.firstmsg-popup-overlay {
-  position: fixed !important;
-  top: 0 !important; left: 0 !important;
-  right: 0 !important; bottom: 0 !important;
-  width: 100vw !important; height: 100vh !important;
-  z-index: 99999 !important;
-  background: rgba(0, 0, 0, 0.65);
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 16px;
-  backdrop-filter: blur(2px);
-  box-sizing: border-box;
+function getSettings() {
+    const { extensionSettings } = SillyTavern.getContext();
+    if (!extensionSettings[MODULE_NAME])
+        extensionSettings[MODULE_NAME] = structuredClone(DEFAULT_SETTINGS);
+    for (const k of Object.keys(DEFAULT_SETTINGS))
+        if (!Object.hasOwn(extensionSettings[MODULE_NAME], k))
+            extensionSettings[MODULE_NAME][k] = DEFAULT_SETTINGS[k];
+    return extensionSettings[MODULE_NAME];
 }
 
-/* ── 팝업 박스 ── */
-.firstmsg-popup-box {
-  background: var(--SmartThemeBlurTintColor, #1e1e2e);
-  border: 1px solid var(--SmartThemeBorderColor, #555);
-  border-radius: 12px;
-  width: min(480px, 100%);
-  max-height: 88vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.55);
-  padding: 18px 20px 20px;
-  gap: 0;
-  margin: auto;
+// ── 팝업 HTML ────────────────────────────────────────────────
+const POPUP_HTML = `
+<div id="firstmsg-popup-overlay" class="firstmsg-popup-overlay" style="display:none;">
+  <div class="firstmsg-popup-box">
+    <div class="firstmsg-popup-header">
+      <span>✨ First Message Generator</span>
+      <button id="firstmsg-popup-close" class="firstmsg-popup-close-btn" title="닫기">✕</button>
+    </div>
+    <div class="firstmsg-panel">
+      <div class="firstmsg-section">
+        <div class="firstmsg-row-label">
+          <label>🔌 커넥션 프로필</label>
+          <span class="firstmsg-hint">비워두면 현재 연결된 API 사용</span>
+        </div>
+        <div class="firstmsg-profile-row">
+          <select id="firstmsg-profile-select"><option value="">(현재 연결된 API 사용)</option></select>
+          <button id="firstmsg-profile-refresh" class="menu_button" title="새로고침">↻</button>
+        </div>
+      </div>
+      <div class="firstmsg-section">
+        <label for="firstmsg-user-note">✏️ 원하는 분위기 / 추가 요청 (선택)</label>
+        <textarea id="firstmsg-user-note" rows="3" placeholder="예) 완전 롤콤, 슬로우번 느낌의 친한 친구 그리팅&#10;비워두면 캐릭터 기반으로 랜덤 생성"></textarea>
+      </div>
+      <div class="firstmsg-section firstmsg-options">
+        <label class="firstmsg-checkbox-label">
+          <input type="checkbox" id="firstmsg-korean" checked><span>한국어 출력</span>
+        </label>
+      </div>
+      <div class="firstmsg-btn-row">
+        <button id="firstmsg-generate-btn" class="menu_button firstmsg-main-btn">✨ 예시 5개 생성</button>
+        <button id="firstmsg-clear-btn" class="menu_button">🗑️ 초기화</button>
+      </div>
+      <div id="firstmsg-loading" style="display:none;">
+        <div class="firstmsg-spinner"></div>
+        <span id="firstmsg-loading-text">예시 생성 중...</span>
+      </div>
+      <div id="firstmsg-candidates-area" style="display:none;">
+        <div class="firstmsg-candidates-header">
+          <label>💡 마음에 드는 씬을 골라주세요</label>
+          <button id="firstmsg-regen-btn" class="menu_button firstmsg-small-btn">🔄 다시 생성</button>
+        </div>
+        <div id="firstmsg-candidates-list"></div>
+      </div>
+      <div id="firstmsg-result-area" style="display:none;">
+        <div class="firstmsg-result-header">
+          <label>✅ 생성된 퍼스트 메시지</label>
+          <span id="firstmsg-char-count" class="firstmsg-char-count"></span>
+        </div>
+        <textarea id="firstmsg-result"></textarea>
+        <div class="firstmsg-btn-row">
+          <button id="firstmsg-apply-btn" class="menu_button firstmsg-apply-btn">✅ 그리팅에 추가하기</button>
+          <button id="firstmsg-copy-btn" class="menu_button">📋 복사하기</button>
+          <button id="firstmsg-back-btn" class="menu_button">↩ 씬 목록으로</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// ── 팝업 초기화 ──────────────────────────────────────────────
+function initPopup() {
+    if (document.getElementById('firstmsg-popup-overlay')) return;
+    document.body.insertAdjacentHTML('beforeend', POPUP_HTML);
+    restoreInputs();
+    refreshProfiles();
+    bindPopupEvents();
 }
 
-/* ── 팝업 헤더 ── */
-.firstmsg-popup-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-  font-size: 1em;
-  font-weight: 700;
-  color: var(--SmartThemeBodyColor, #eee);
-  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
-  padding-bottom: 10px;
-}
-.firstmsg-popup-close-btn {
-  background: none !important;
-  border: none !important;
-  color: var(--SmartThemeEmColor, #888);
-  font-size: 1.05em;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
-  line-height: 1;
-}
-.firstmsg-popup-close-btn:hover {
-  color: var(--SmartThemeBodyColor, #eee);
-  background: rgba(255,255,255,0.08) !important;
+function openPopup() {
+    initPopup();
+    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
+    // 열 때마다 상태 초기화
+    document.getElementById('firstmsg-candidates-area').style.display = 'none';
+    document.getElementById('firstmsg-result-area').style.display = 'none';
+    document.getElementById('firstmsg-loading').style.display = 'none';
 }
 
-/* ── 탭 ── */
-.firstmsg-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
-  padding-bottom: 0;
-}
-.firstmsg-tab-btn {
-  background: none !important;
-  border: none !important;
-  border-bottom: 2px solid transparent !important;
-  color: var(--SmartThemeEmColor, #888);
-  font-size: 0.88em;
-  padding: 6px 14px 8px !important;
-  cursor: pointer;
-  border-radius: 0 !important;
-  transition: color 0.15s, border-color 0.15s;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.firstmsg-tab-btn.active {
-  color: var(--SmartThemeQuoteColor, #9b8fd4) !important;
-  border-bottom-color: var(--SmartThemeQuoteColor, #9b8fd4) !important;
-}
-.firstmsg-tab-content { display: none; }
-.firstmsg-tab-content.active { display: block; }
-
-/* ── 보관함 ── */
-.firstmsg-library-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: var(--SmartThemeEmColor, #888);
-  font-size: 0.88em;
-  padding: 32px 16px;
-  line-height: 1.8;
-}
-#firstmsg-library-list { display: flex; flex-direction: column; gap: 10px; }
-.firstmsg-library-card {
-  display: flex; flex-direction: column; gap: 0;
-  background: var(--SmartThemeBlurTintColor, rgba(0,0,0,0.25));
-  border: 1px solid var(--SmartThemeBorderColor, #555);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.firstmsg-library-meta {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 12px;
-  background: rgba(0,0,0,0.2);
-  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
-}
-.firstmsg-library-num {
-  font-weight: 700; color: var(--SmartThemeQuoteColor, #9b8fd4);
-  font-size: 0.82em;
-}
-.firstmsg-library-date {
-  font-size: 0.75em; color: var(--SmartThemeEmColor, #888);
-}
-.firstmsg-library-body {
-  height: 200px;
-  overflow-y: scroll;
-  padding: 10px 12px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(155,111,212,0.3) transparent;
-}
-.firstmsg-library-body::-webkit-scrollbar { width: 3px; }
-.firstmsg-library-body::-webkit-scrollbar-thumb { background: rgba(155,111,212,0.35); border-radius: 3px; }
-.firstmsg-library-text {
-  font-size: 0.85em;
-  color: var(--SmartThemeBodyColor, #ddd);
-  line-height: 1.7;
-  word-break: break-word;
-  user-select: text;
-  -webkit-user-select: text;
-}
-.firstmsg-library-actions {
-  display: flex;
-  border-top: 1px solid var(--SmartThemeBorderColor, #444);
-}
-.firstmsg-library-actions .menu_button {
-  flex: 1 !important;
-  border: none !important;
-  border-right: 1px solid var(--SmartThemeBorderColor, #444) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  color: var(--SmartThemeEmColor, #aaa) !important;
-  font-size: 0.8em !important;
-  padding: 7px 6px !important;
-  min-width: unset !important;
-  white-space: nowrap !important;
-  transition: background 0.15s;
-}
-.firstmsg-library-actions .menu_button:last-child { border-right: none !important; }
-.firstmsg-library-actions .menu_button:hover {
-  background: rgba(155,111,212,0.12) !important;
-  color: var(--SmartThemeBodyColor, #eee) !important;
-}
-.firstmsg-delete-btn:hover {
-  background: rgba(220,80,80,0.12) !important;
-  color: #f08080 !important;
+function closePopup() {
+    const overlay = document.getElementById('firstmsg-popup-overlay');
+    if (overlay) overlay.style.display = 'none';
 }
 
+// ── ✒️ 버튼을 캐릭터 창에 주입 ───────────────────────────────
+function injectPencilButton() {
+    // 이미 주입된 경우 스킵
+    if (document.getElementById('firstmsg-pencil-btn')) return;
+
+    // "대체. 첫 메시지" 버튼 찾기
+    // ST에서 alt greetings 버튼은 #set_first_mes 또는 텍스트로 탐색
+    const altBtn =
+        document.querySelector('#set_first_mes') ??
+        [...document.querySelectorAll('button, .menu_button, [title]')]
+            .find(el => el.textContent?.trim() === '대체. 첫 메시지' || el.title === '대체. 첫 메시지' || el.id?.includes('alt') || el.id?.includes('first_mes'));
+
+    if (!altBtn) return;
+
+    const pencilBtn = document.createElement('button');
+    pencilBtn.id = 'firstmsg-pencil-btn';
+    pencilBtn.className = 'menu_button firstmsg-pencil-btn';
+    pencilBtn.title = 'AI로 퍼스트 메시지 생성';
+    pencilBtn.textContent = '✒️';
+    pencilBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openPopup();
+    });
+
+    // 버튼 바로 뒤에 삽입
+    altBtn.insertAdjacentElement('afterend', pencilBtn);
+}
+
+// ── 입력 복원 / 저장 ─────────────────────────────────────────
+function restoreInputs() {
+    const s = getSettings();
+    setVal('firstmsg-user-note', s.userNote);
+    setChecked('firstmsg-korean', s.korean);
+}
+
+function getCurrentCharInfo() {
+    const ctx = SillyTavern.getContext();
+    const char = ctx.characters?.[ctx.characterId];
+    if (!char) return null;
+    const parts = [];
+    if (char.name)        parts.push('이름: ' + char.name);
+    if (char.description) parts.push(char.description.trim());
+    if (char.personality) parts.push('성격: ' + char.personality.trim());
+    if (char.scenario)    parts.push('시나리오: ' + char.scenario.trim());
+    return {
+        desc: parts.join('\n\n'),
+        firstName: char.first_mes ?? '',
+        name: char.name ?? '',
+    };
+}
+
+function refreshProfiles() {
+    const select = document.getElementById('firstmsg-profile-select');
+    if (!select) return;
+    while (select.options.length > 1) select.remove(1);
+
+    const ctx = SillyTavern.getContext();
+    let profiles =
+        ctx.connection_profiles ??
+        ctx.connectionProfiles ??
+        ctx.settings?.connection_profiles ??
+        ctx.settings?.connectionProfiles ??
+        null;
+
+    if (!profiles?.length) {
+        try { profiles = window.power_user?.connection_profiles ?? null; } catch(e) {}
+    }
+    if (!profiles?.length) {
+        try {
+            for (const key of Object.keys(window)) {
+                const val = window[key];
+                if (val && typeof val === 'object' && Array.isArray(val.connection_profiles) && val.connection_profiles.length) {
+                    profiles = val.connection_profiles;
+                    break;
+                }
+            }
+        } catch(e) {}
+    }
+
+    if (Array.isArray(profiles) && profiles.length > 0) {
+        for (const p of profiles) {
+            const opt = document.createElement('option');
+            opt.value = p.id ?? p.name ?? String(p);
+            opt.textContent = p.name ?? p.id ?? String(p);
+            select.appendChild(opt);
+        }
+    } else {
+        const noOpt = document.createElement('option');
+        noOpt.disabled = true;
+        noOpt.textContent = '(저장된 프로필 없음 — 현재 API 사용)';
+        select.appendChild(noOpt);
+    }
+
+    const saved = getSettings().lastProfile;
+    if (saved) select.value = saved;
+}
+
+function bindPopupEvents() {
+    on('firstmsg-popup-close',     'click', closePopup);
+    on('firstmsg-generate-btn',    'click', handleGenerateCandidates);
+    on('firstmsg-regen-btn',       'click', handleGenerateCandidates);
+    on('firstmsg-copy-btn',        'click', handleCopy);
+    on('firstmsg-clear-btn',       'click', handleClear);
+    on('firstmsg-apply-btn',       'click', handleApplyGreeting);
+    on('firstmsg-profile-refresh', 'click', refreshProfiles);
+    on('firstmsg-back-btn', 'click', () => {
+        document.getElementById('firstmsg-result-area').style.display = 'none';
+        document.getElementById('firstmsg-candidates-area').style.display = 'flex';
+    });
+    document.getElementById('firstmsg-user-note')?.addEventListener('input', persistInputs);
+    document.getElementById('firstmsg-korean')?.addEventListener('change', persistInputs);
+    document.getElementById('firstmsg-profile-select')?.addEventListener('change', () => {
+        getSettings().lastProfile = getVal('firstmsg-profile-select');
+        SillyTavern.getContext().saveSettingsDebounced();
+    });
+    document.getElementById('firstmsg-result')?.addEventListener('input', updateCharCount);
+
+    // 오버레이 배경 클릭 시 닫기
+    document.getElementById('firstmsg-popup-overlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'firstmsg-popup-overlay') closePopup();
+    });
+}
+
+function persistInputs() {
+    const s = getSettings();
+    s.userNote = getVal('firstmsg-user-note');
+    s.korean   = getChecked('firstmsg-korean');
+    SillyTavern.getContext().saveSettingsDebounced();
+}
+
+async function switchProfileIfNeeded() {
+    const profileId = getVal('firstmsg-profile-select');
+    if (!profileId) return;
+    try {
+        await fetch('/api/connection-profiles/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: profileId }),
+        });
+    } catch(e) {}
+}
+
+// ── STEP 1: 씬 예시 5개 생성 ─────────────────────────────────
+async function handleGenerateCandidates() {
+    const charInfo = getCurrentCharInfo();
+    if (!charInfo?.desc?.trim()) {
+        toastr.error('캐릭터를 먼저 선택해주세요!');
+        return;
+    }
+    const userNote = getVal('firstmsg-user-note');
+    const korean   = getChecked('firstmsg-korean');
+
+    await switchProfileIfNeeded();
+    setLoading(true, '예시 5개 생성 중...');
+    document.getElementById('firstmsg-candidates-area').style.display = 'none';
+    document.getElementById('firstmsg-result-area').style.display = 'none';
+
+    try {
+        const langLine = korean
+            ? '반드시 한국어로 작성하세요.'
+            : 'Write in the same language as the character info.';
+
+        const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 씬 아이디어를 제안하는 작가입니다.
+
+[규칙]
+- 기존 그리팅은 참고용입니다. 절대 그대로 쓰거나 살짝만 바꾸지 마세요. 완전히 새로운 씬을 제안하세요.
+- 캐릭터의 성격과 특성이 자연스럽게 드러나는 씬이어야 합니다.
+- 각 예시는 반드시 한 문장으로만 씁니다. 실제 대사나 긴 묘사 절대 금지.
+- 어떤 장면인지 핵심 상황만 짧고 재미있게 설명하세요.
+- ${langLine}
+
+반드시 아래 JSON 형식으로만 출력하세요. 다른 텍스트 없이:
+{"candidates":["씬 설명 1","씬 설명 2","씬 설명 3","씬 설명 4","씬 설명 5"]}`;
+
+        let userPrompt = '[캐릭터 정보]\n' + charInfo.desc + '\n\n';
+        if (charInfo.firstName) userPrompt += '[기존 그리팅 — 참고만 할 것]\n' + charInfo.firstName + '\n\n';
+        if (userNote.trim())    userPrompt += '[원하는 분위기 / 추가 요청]\n' + userNote.trim() + '\n\n';
+        userPrompt += '완전히 새로운 씬 아이디어 5개를 JSON으로 출력하세요.';
+
+        const raw = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
+        const jsonStr = raw.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(jsonStr);
+        const candidates = parsed.candidates ?? parsed;
+
+        renderCandidates(candidates);
+        toastr.success('씬 아이디어 5개 생성 완료!');
+    } catch(err) {
+        console.error('[' + MODULE_NAME + ']', err);
+        toastr.error('오류: ' + (err.message ?? err));
+    } finally {
+        setLoading(false);
+    }
+}
+
+function renderCandidates(candidates) {
+    const list = document.getElementById('firstmsg-candidates-list');
+    list.innerHTML = '';
+    candidates.forEach((text, i) => {
+        const card = document.createElement('div');
+        card.className = 'firstmsg-candidate-card';
+        card.innerHTML = `<span class="firstmsg-candidate-num">${i + 1}</span><span class="firstmsg-candidate-text">${escHtml(text)}</span>`;
+        card.addEventListener('click', () => handleSelectCandidate(text, i));
+        list.appendChild(card);
+    });
+    document.getElementById('firstmsg-candidates-area').style.display = 'flex';
+    document.getElementById('firstmsg-candidates-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── STEP 2: 선택한 씬 → 풀버전 ───────────────────────────────
+async function handleSelectCandidate(candidateText, idx) {
+    const charInfo = getCurrentCharInfo();
+    const userNote = getVal('firstmsg-user-note');
+    const korean   = getChecked('firstmsg-korean');
+
+    document.querySelectorAll('.firstmsg-candidate-card').forEach((c, i) =>
+        c.classList.toggle('firstmsg-candidate-selected', i === idx));
+
+    await switchProfileIfNeeded();
+    setLoading(true, '풀버전 작성 중...');
+    document.getElementById('firstmsg-result-area').style.display = 'none';
+
+    try {
+        const langLine = korean
+            ? '반드시 한국어로 작성하세요.'
+            : 'Write in the same language as the character info.';
+
+        const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지를 전문으로 대필하는 작가입니다.
+
+[서술 규칙 — 반드시 준수]
+- 나레이션(배경 묘사, 행동 묘사)은 이탤릭 없이 일반 텍스트로 씁니다.
+- *이탤릭*은 오직 캐릭터의 내면 생각이나 독백에만 사용합니다.
+- 캐릭터 대사는 따옴표로 표시합니다.
+- 절대 모든 나레이션에 *이탤릭*을 남발하지 마세요.
+
+[예시 형식]
+방 안에 빗소리가 조용히 깔린다. 아틀라스가 젖은 머리를 털며 문을 열고 들어온다.
+*왜 이렇게 신경 쓰이지.*
+"야, 타월 좀 줘봐."
+
+[내용 규칙]
+- 기존 그리팅은 참고용입니다. 완전히 새로운 장면으로 작성하세요.
+- 캐릭터의 말투, 성격, 특성을 정확히 반영하세요.
+- {{user}}, {{char}} 변수는 그대로 유지하세요.
+- ${langLine}
+- 퍼스트 메시지 본문만 출력하세요. 제목이나 설명 없이.`;
+
+        let userPrompt = '[캐릭터 정보]\n' + charInfo.desc + '\n\n';
+        if (charInfo.firstName) userPrompt += '[기존 그리팅 — 참고만 할 것]\n' + charInfo.firstName + '\n\n';
+        if (userNote.trim())    userPrompt += '[원하는 분위기]\n' + userNote.trim() + '\n\n';
+        userPrompt += '[선택한 씬 아이디어]\n' + candidateText + '\n\n이 씬을 풀버전 퍼스트 메시지로 작성해주세요.';
+
+        const result = await SillyTavern.getContext().generateRaw({ systemPrompt, prompt: userPrompt });
+        if (!result?.trim()) { toastr.error('생성 결과가 비어있습니다.'); return; }
+
+        setVal('firstmsg-result', result.trim());
+        document.getElementById('firstmsg-result-area').style.display = 'flex';
+        updateCharCount();
+        document.getElementById('firstmsg-result-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        toastr.success('완성!');
+    } catch(err) {
+        console.error('[' + MODULE_NAME + ']', err);
+        toastr.error('오류: ' + (err.message ?? err));
+    } finally {
+        setLoading(false);
+    }
+}
+
+// ── 그리팅에 추가 ─────────────────────────────────────────────
+async function handleApplyGreeting() {
+    const text = document.getElementById('firstmsg-result')?.value?.trim();
+    if (!text) return;
+
+    const ctx = SillyTavern.getContext();
+    const char = ctx.characters?.[ctx.characterId];
+    if (!char) { toastr.error('캐릭터를 선택해주세요.'); return; }
+
+    try {
+        // alternate_greetings 배열에 추가
+        if (!Array.isArray(char.data?.alternate_greetings)) {
+            if (!char.data) char.data = {};
+            char.data.alternate_greetings = [];
+        }
+        char.data.alternate_greetings.push(text);
+
+        // ST API로 저장
+        const formData = new FormData();
+        formData.append('avatar_url', char.avatar);
+        formData.append('ch_name', char.name);
+        formData.append('description', char.description ?? '');
+        formData.append('personality', char.personality ?? '');
+        formData.append('scenario', char.scenario ?? '');
+        formData.append('first_mes', char.first_mes ?? '');
+        formData.append('mes_example', char.mes_example ?? '');
+        formData.append('world', char.world ?? '');
+        formData.append('json_data', JSON.stringify(char.data));
+        formData.append('overwrite_action', 'true');
+
+        const res = await fetch('/api/characters/edit', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('저장 실패: ' + res.status);
+
+        // 이벤트 발행해서 UI 새로고침
+        ctx.eventSource.emit(ctx.event_types.CHARACTER_EDITED, { detail: { id: ctx.characterId } });
+
+        toastr.success('그리팅에 추가되었습니다!');
+        closePopup();
+    } catch(err) {
+        console.error('[' + MODULE_NAME + ']', err);
+        toastr.error('추가 실패: ' + (err.message ?? err));
+    }
+}
+
+function setLoading(on, msg) {
+    document.getElementById('firstmsg-loading').style.display = on ? 'flex' : 'none';
+    if (msg) document.getElementById('firstmsg-loading-text').textContent = msg;
+    document.getElementById('firstmsg-generate-btn').disabled = on;
+    const regen = document.getElementById('firstmsg-regen-btn');
+    if (regen) regen.disabled = on;
+}
+
+function updateCharCount() {
+    const r = document.getElementById('firstmsg-result');
+    document.getElementById('firstmsg-char-count').textContent = r.value.length + '자';
+}
+
+async function handleCopy() {
+    const v = document.getElementById('firstmsg-result')?.value;
+    if (!v) return;
+    await navigator.clipboard.writeText(v);
+    toastr.success('클립보드에 복사했습니다!');
+}
+
+function handleClear() {
+    setVal('firstmsg-user-note', '');
+    document.getElementById('firstmsg-candidates-area').style.display = 'none';
+    document.getElementById('firstmsg-result-area').style.display = 'none';
+    persistInputs();
+    toastr.info('초기화되었습니다.');
+}
+
+function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function on(id, ev, fn) { document.getElementById(id)?.addEventListener(ev, fn); }
+function getVal(id) { return document.getElementById(id)?.value ?? ''; }
+function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v ?? ''; }
+function getChecked(id) { return document.getElementById(id)?.checked ?? false; }
+function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
+
+// ── 버튼 주입: 여러 시점에 재시도 ───────────────────────────
+function tryInjectPencilButton() {
+    injectPencilButton();
+}
+
+jQuery(async () => {
+    const { eventSource, event_types } = SillyTavern.getContext();
+
+    eventSource.on(event_types.APP_READY, () => {
+        tryInjectPencilButton();
+        // DOM 변화 감지해서 버튼 주입 유지
+        const observer = new MutationObserver(() => {
+            if (!document.getElementById('firstmsg-pencil-btn')) {
+                tryInjectPencilButton();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    // 캐릭터 전환 시 버튼 재주입
+    eventSource.on(event_types.CHARACTER_SELECTED, () => {
+        setTimeout(tryInjectPencilButton, 300);
+    });
+});
