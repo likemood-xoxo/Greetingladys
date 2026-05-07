@@ -22,54 +22,74 @@ const POPUP_HTML = `
       <span>✨ GreetingLadys</span>
       <button id="firstmsg-popup-close" class="firstmsg-popup-close-btn" title="닫기">✕</button>
     </div>
-    <div class="firstmsg-panel">
-      <div class="firstmsg-section">
-        <div class="firstmsg-row-label">
-          <label>🔌 커넥션 프로필</label>
-          <span class="firstmsg-hint">비워두면 현재 연결된 API 사용</span>
+
+    <div class="firstmsg-tabs">
+      <button class="firstmsg-tab-btn active" data-tab="generate">✨ 생성</button>
+      <button class="firstmsg-tab-btn" data-tab="library">📚 보관함</button>
+    </div>
+
+    <!-- 생성 탭 -->
+    <div id="firstmsg-tab-generate" class="firstmsg-tab-content active">
+      <div class="firstmsg-panel">
+        <div class="firstmsg-section">
+          <div class="firstmsg-row-label">
+            <label>🔌 커넥션 프로필</label>
+            <span class="firstmsg-hint">비워두면 현재 연결된 API 사용</span>
+          </div>
+          <div class="firstmsg-profile-row">
+            <select id="firstmsg-profile-select"><option value="">(현재 연결된 API 사용)</option></select>
+            <button id="firstmsg-profile-refresh" class="menu_button" title="새로고침">↻</button>
+          </div>
         </div>
-        <div class="firstmsg-profile-row">
-          <select id="firstmsg-profile-select"><option value="">(현재 연결된 API 사용)</option></select>
-          <button id="firstmsg-profile-refresh" class="menu_button" title="새로고침">↻</button>
+        <div class="firstmsg-section">
+          <label for="firstmsg-user-note">✏️ 원하는 분위기 / 추가 요청 (선택)</label>
+          <textarea id="firstmsg-user-note" rows="3" placeholder="예) 완전 롤콤, 슬로우번 느낌의 친한 친구 그리팅&#10;비워두면 캐릭터 기반으로 랜덤 생성"></textarea>
         </div>
-      </div>
-      <div class="firstmsg-section">
-        <label for="firstmsg-user-note">✏️ 원하는 분위기 / 추가 요청 (선택)</label>
-        <textarea id="firstmsg-user-note" rows="3" placeholder="예) 완전 롤콤, 슬로우번 느낌의 친한 친구 그리팅&#10;비워두면 캐릭터 기반으로 랜덤 생성"></textarea>
-      </div>
-      <div class="firstmsg-section firstmsg-options">
-        <label class="firstmsg-checkbox-label">
-          <input type="checkbox" id="firstmsg-korean"><span>한국어 출력</span>
-        </label>
-      </div>
-      <div class="firstmsg-btn-row">
-        <button id="firstmsg-generate-btn" class="menu_button firstmsg-main-btn">✨ 예시 5개 생성</button>
-        <button id="firstmsg-clear-btn" class="menu_button">🗑️ 초기화</button>
-      </div>
-      <div id="firstmsg-loading" style="display:none;">
-        <div class="firstmsg-spinner"></div>
-        <span id="firstmsg-loading-text">예시 생성 중...</span>
-      </div>
-      <div id="firstmsg-candidates-area" style="display:none;">
-        <div class="firstmsg-candidates-header">
-          <label>💡 마음에 드는 씬을 골라주세요</label>
-          <button id="firstmsg-regen-btn" class="menu_button firstmsg-small-btn">🔄 다시 생성</button>
+        <div class="firstmsg-section firstmsg-options">
+          <label class="firstmsg-checkbox-label">
+            <input type="checkbox" id="firstmsg-korean"><span>한국어 출력</span>
+          </label>
         </div>
-        <div id="firstmsg-candidates-list"></div>
-      </div>
-      <div id="firstmsg-result-area" style="display:none;">
-        <div class="firstmsg-result-header">
-          <label>✅ 생성된 퍼스트 메시지</label>
-          <span id="firstmsg-char-count" class="firstmsg-char-count"></span>
-        </div>
-        <textarea id="firstmsg-result"></textarea>
         <div class="firstmsg-btn-row">
-          <button id="firstmsg-apply-btn" class="menu_button firstmsg-apply-btn">✅ 그리팅에 추가하기</button>
-          <button id="firstmsg-copy-btn" class="menu_button">📋 복사하기</button>
-          <button id="firstmsg-back-btn" class="menu_button">↩ 씬 목록으로</button>
+          <button id="firstmsg-generate-btn" class="menu_button firstmsg-main-btn">✨ 예시 5개 생성</button>
+          <button id="firstmsg-clear-btn" class="menu_button">🗑️ 초기화</button>
+        </div>
+        <div id="firstmsg-loading" style="display:none;">
+          <div class="firstmsg-spinner"></div>
+          <span id="firstmsg-loading-text">예시 생성 중...</span>
+        </div>
+        <div id="firstmsg-candidates-area" style="display:none;">
+          <div class="firstmsg-candidates-header">
+            <label>💡 마음에 드는 씬을 골라주세요</label>
+            <button id="firstmsg-regen-btn" class="menu_button firstmsg-small-btn">🔄 다시 생성</button>
+          </div>
+          <div id="firstmsg-candidates-list"></div>
+        </div>
+        <div id="firstmsg-result-area" style="display:none;">
+          <div class="firstmsg-result-header">
+            <label>✅ 생성된 퍼스트 메시지</label>
+            <span id="firstmsg-char-count" class="firstmsg-char-count"></span>
+          </div>
+          <textarea id="firstmsg-result"></textarea>
+          <div class="firstmsg-btn-row">
+            <button id="firstmsg-save-btn" class="menu_button firstmsg-apply-btn">💾 보관함에 저장</button>
+            <button id="firstmsg-copy-gen-btn" class="menu_button">📋 복사하기</button>
+            <button id="firstmsg-back-btn" class="menu_button">↩ 씬 목록으로</button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- 보관함 탭 -->
+    <div id="firstmsg-tab-library" class="firstmsg-tab-content" style="display:none;">
+      <div class="firstmsg-panel">
+        <div id="firstmsg-library-empty" class="firstmsg-library-empty" style="display:none;">
+          <span>아직 저장된 그리팅이 없어요.<br>생성 탭에서 만들어보세요! ✨</span>
+        </div>
+        <div id="firstmsg-library-list"></div>
+      </div>
+    </div>
+
   </div>
 </div>`;
 
@@ -82,7 +102,13 @@ function initPopup() {
 
 function openPopup() {
     initPopup();
-    // 열 때마다 완전 초기화 — 한국어 체크는 항상 false(영어)로
+    resetGenerateTab();
+    refreshProfiles();
+    switchTab('generate');
+    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
+}
+
+function resetGenerateTab() {
     setVal('firstmsg-user-note', '');
     setVal('firstmsg-result', '');
     setChecked('firstmsg-korean', false);
@@ -93,13 +119,24 @@ function openPopup() {
     document.getElementById('firstmsg-candidates-area').style.display = 'none';
     document.getElementById('firstmsg-result-area').style.display = 'none';
     document.getElementById('firstmsg-loading').style.display = 'none';
-    refreshProfiles();
-    document.getElementById('firstmsg-popup-overlay').style.display = 'flex';
 }
 
 function closePopup() {
     const overlay = document.getElementById('firstmsg-popup-overlay');
     if (overlay) overlay.style.display = 'none';
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.firstmsg-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.querySelectorAll('.firstmsg-tab-content').forEach(el => {
+        el.style.display = 'none';
+    });
+    const target = document.getElementById('firstmsg-tab-' + tab);
+    if (target) target.style.display = 'block';
+
+    if (tab === 'library') renderLibrary();
 }
 
 // ── ✒️ 버튼 주입 ─────────────────────────────────────────────
@@ -118,7 +155,7 @@ function injectPencilButton() {
     const pencilBtn = document.createElement('button');
     pencilBtn.id = 'firstmsg-pencil-btn';
     pencilBtn.className = 'menu_button firstmsg-pencil-btn';
-    pencilBtn.title = 'GreetingLadys — AI 그리팅 생성';
+    pencilBtn.title = 'GreetingLadys — AI 그리팅 생성 & 보관함';
     pencilBtn.textContent = '✒️';
     pencilBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -149,21 +186,116 @@ function refreshProfiles() {
             mySelect.appendChild(opt);
         }
         if (saved) mySelect.value = saved;
-        console.log('[GreetingLadys] 프로필 로드:', mySelect.options.length - 1, '개');
     }
+}
+
+// ── 보관함 읽기/쓰기 ─────────────────────────────────────────
+function getLibrary() {
+    const ctx = SillyTavern.getContext();
+    const char = ctx.characters?.[ctx.characterId];
+    if (!char) return [];
+    return char.data?.extensions?.[MODULE_NAME]?.greetings ?? [];
+}
+
+async function saveToLibrary(text) {
+    const ctx = SillyTavern.getContext();
+    const existing = getLibrary();
+    const newEntry = {
+        id: Date.now(),
+        text,
+        createdAt: new Date().toLocaleDateString('ko-KR'),
+    };
+    const updated = [...existing, newEntry];
+    await ctx.writeExtensionField(ctx.characterId, MODULE_NAME, { greetings: updated });
+    toastr.success('보관함에 저장되었습니다! 📚');
+}
+
+async function deleteFromLibrary(id) {
+    const ctx = SillyTavern.getContext();
+    const existing = getLibrary();
+    const updated = existing.filter(g => g.id !== id);
+    await ctx.writeExtensionField(ctx.characterId, MODULE_NAME, { greetings: updated });
+}
+
+// ── 보관함 렌더링 ─────────────────────────────────────────────
+function renderLibrary() {
+    const greetings = getLibrary();
+    const listEl = document.getElementById('firstmsg-library-list');
+    const emptyEl = document.getElementById('firstmsg-library-empty');
+    if (!listEl) return;
+
+    listEl.innerHTML = '';
+
+    if (greetings.length === 0) {
+        emptyEl.style.display = 'flex';
+        return;
+    }
+    emptyEl.style.display = 'none';
+
+    greetings.slice().reverse().forEach((g, reverseIdx) => {
+        const idx = greetings.length - 1 - reverseIdx;
+        const card = document.createElement('div');
+        card.className = 'firstmsg-library-card';
+
+        const preview = g.text.length > 120 ? g.text.slice(0, 120) + '...' : g.text;
+
+        card.innerHTML = `
+          <div class="firstmsg-library-meta">
+            <span class="firstmsg-library-num">#${greetings.length - idx}</span>
+            <span class="firstmsg-library-date">${g.createdAt ?? ''}</span>
+          </div>
+          <div class="firstmsg-library-preview">${escHtml(preview)}</div>
+          <div class="firstmsg-library-expanded" style="display:none;">${escHtml(g.text)}</div>
+          <div class="firstmsg-library-actions">
+            <button class="menu_button firstmsg-lib-expand-btn firstmsg-small-btn">👁️ 전체보기</button>
+            <button class="menu_button firstmsg-lib-copy-btn firstmsg-small-btn">📋 복사</button>
+            <button class="menu_button firstmsg-lib-delete-btn firstmsg-small-btn firstmsg-delete-btn">🗑️ 삭제</button>
+          </div>
+        `;
+
+        // 전체보기 토글
+        card.querySelector('.firstmsg-lib-expand-btn').addEventListener('click', () => {
+            const previewEl = card.querySelector('.firstmsg-library-preview');
+            const expandedEl = card.querySelector('.firstmsg-library-expanded');
+            const btn = card.querySelector('.firstmsg-lib-expand-btn');
+            const isExpanded = expandedEl.style.display !== 'none';
+            previewEl.style.display = isExpanded ? 'block' : 'none';
+            expandedEl.style.display = isExpanded ? 'none' : 'block';
+            btn.textContent = isExpanded ? '👁️ 전체보기' : '🔼 접기';
+        });
+
+        // 복사
+        card.querySelector('.firstmsg-lib-copy-btn').addEventListener('click', async () => {
+            await navigator.clipboard.writeText(g.text);
+            toastr.success('클립보드에 복사했습니다!');
+        });
+
+        // 삭제
+        card.querySelector('.firstmsg-lib-delete-btn').addEventListener('click', async () => {
+            if (!confirm('이 그리팅을 삭제할까요?')) return;
+            await deleteFromLibrary(g.id);
+            renderLibrary();
+        });
+
+        listEl.appendChild(card);
+    });
 }
 
 function bindPopupEvents() {
     on('firstmsg-popup-close',     'click', closePopup);
     on('firstmsg-generate-btn',    'click', handleGenerateCandidates);
     on('firstmsg-regen-btn',       'click', handleGenerateCandidates);
-    on('firstmsg-copy-btn',        'click', handleCopy);
+    on('firstmsg-copy-gen-btn',    'click', handleCopyGenerated);
     on('firstmsg-clear-btn',       'click', handleClear);
-    on('firstmsg-apply-btn',       'click', handleApplyGreeting);
+    on('firstmsg-save-btn',        'click', handleSaveToLibrary);
     on('firstmsg-profile-refresh', 'click', refreshProfiles);
     on('firstmsg-back-btn', 'click', () => {
         document.getElementById('firstmsg-result-area').style.display = 'none';
         document.getElementById('firstmsg-candidates-area').style.display = 'flex';
+    });
+
+    document.querySelectorAll('.firstmsg-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
     document.getElementById('firstmsg-profile-select')?.addEventListener('change', () => {
         getSettings().lastProfile = getVal('firstmsg-profile-select');
@@ -175,50 +307,21 @@ function bindPopupEvents() {
     });
 }
 
-// ── 프로필 기반 generateRaw 호출 ─────────────────────────────
-// 전역 API 설정을 건드리지 않고, 선택한 프로필 정보만 추출해서 사용
-async function generateWithProfile(systemPrompt, prompt) {
+// ── 저장 버튼 ─────────────────────────────────────────────────
+async function handleSaveToLibrary() {
+    const text = getVal('firstmsg-result').trim();
+    if (!text) return;
     const ctx = SillyTavern.getContext();
-    const profileId = getVal('firstmsg-profile-select');
-
-    // 프로필 미선택 → 현재 연결된 API 그대로 사용
-    if (!profileId) {
-        return await ctx.generateRaw({ systemPrompt, prompt });
+    if (ctx.characterId === undefined) {
+        toastr.error('캐릭터를 먼저 선택해주세요.');
+        return;
     }
+    await saveToLibrary(text);
+}
 
-    // 선택한 프로필 정보 찾기
-    const profiles =
-        ctx.extensionSettings?.connectionManager?.profiles ??
-        ctx.extensionSettings?.['connection-manager']?.profiles ??
-        [];
-    const profile = profiles.find(p => (p.id ?? p.name) === profileId);
-
-    if (!profile) {
-        // 프로필 못 찾으면 현재 API 그대로
-        return await ctx.generateRaw({ systemPrompt, prompt });
-    }
-
-    // 현재 설정 백업
-    const origSettings = {
-        main_api: ctx.main_api,
-        api_server: ctx.api_server,
-        openai_model: ctx.openai_model,
-    };
-
-    try {
-        // 프로필 설정 임시 적용 (전역 변수만 임시 변경, 저장 안 함)
-        if (profile.api)          ctx.main_api      = profile.api;
-        if (profile.api_server)   ctx.api_server    = profile.api_server;
-        if (profile.openai_model) ctx.openai_model  = profile.openai_model;
-
-        const result = await ctx.generateRaw({ systemPrompt, prompt });
-        return result;
-    } finally {
-        // 반드시 원래 설정 복원
-        ctx.main_api      = origSettings.main_api;
-        ctx.api_server    = origSettings.api_server;
-        ctx.openai_model  = origSettings.openai_model;
-    }
+// ── generateRaw (프로필 전환 없이) ───────────────────────────
+async function generateWithProfile(systemPrompt, prompt) {
+    return await SillyTavern.getContext().generateRaw({ systemPrompt, prompt });
 }
 
 // ── STEP 1: 씬 예시 5개 생성 ─────────────────────────────────
@@ -233,9 +336,7 @@ async function handleGenerateCandidates() {
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean
-            ? '반드시 한국어로 작성하세요.'
-            : 'Write in English.';
+        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in English.';
 
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지 씬 아이디어를 제안하는 작가입니다.
 
@@ -294,9 +395,7 @@ async function handleSelectCandidate(candidateText, idx) {
     document.getElementById('firstmsg-result-area').style.display = 'none';
 
     try {
-        const langLine = korean
-            ? '반드시 한국어로 작성하세요.'
-            : 'Write in English.';
+        const langLine = korean ? '반드시 한국어로 작성하세요.' : 'Write in English.';
 
         const systemPrompt = `당신은 롤플레이 채팅의 퍼스트 메시지를 전문으로 대필하는 작가입니다.
 
@@ -330,101 +429,13 @@ async function handleSelectCandidate(candidateText, idx) {
         document.getElementById('firstmsg-result-area').style.display = 'flex';
         updateCharCount();
         document.getElementById('firstmsg-result-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        toastr.success('완성!');
+        toastr.success('완성! 💾 저장하거나 📋 복사해서 사용하세요.');
     } catch(err) {
         console.error('[' + MODULE_NAME + ']', err);
         toastr.error('오류: ' + (err.message ?? err));
     } finally {
         setLoading(false);
     }
-}
-
-// ── 그리팅에 추가 ─────────────────────────────────────────────
-async function handleApplyGreeting() {
-    const text = document.getElementById('firstmsg-result')?.value?.trim();
-    if (!text) return;
-
-    const ctx = SillyTavern.getContext();
-    const char = ctx.characters?.[ctx.characterId];
-    if (!char) { toastr.error('캐릭터를 선택해주세요.'); return; }
-
-    try {
-        // alternate_greetings 배열에 추가
-        if (!char.data) char.data = {};
-        if (!Array.isArray(char.data.alternate_greetings)) {
-            char.data.alternate_greetings = [];
-        }
-        char.data.alternate_greetings.push(text);
-
-        // ── 방법 1: ST 내부 jQuery trigger (가장 안전, CSRF 토큰 자동 처리)
-        // ST가 캐릭터 저장할 때 쓰는 내부 이벤트 방식
-        const saved = await trySaveViaSTInternal(ctx, char);
-        if (!saved) throw new Error('저장에 실패했습니다. ST 버전을 확인해주세요.');
-
-        ctx.eventSource.emit(ctx.event_types.CHARACTER_EDITED, { detail: { id: ctx.characterId } });
-        toastr.success('그리팅에 추가되었습니다!');
-        closePopup();
-    } catch(err) {
-        console.error('[' + MODULE_NAME + ']', err);
-        toastr.error('추가 실패: ' + (err.message ?? err));
-    }
-}
-
-async function trySaveViaSTInternal(ctx, char) {
-    // ── 방법 1: window.saveCharacter (ST 전역 함수)
-    if (typeof window.saveCharacter === 'function') {
-        try { await window.saveCharacter(char.avatar, char); return true; } catch(e) { console.warn('[GreetingLadys] saveCharacter 실패:', e); }
-    }
-
-    // ── 방법 2: jQuery #create_button trigger (ST가 내부적으로 쓰는 저장 트리거)
-    // ST의 캐릭터 저장은 실제로 폼 제출 방식 — 필드를 채우고 트리거
-    try {
-        // ST 캐릭터 편집 폼 필드에 현재 캐릭터 데이터 반영
-        if ($('#char_name_pole').length) {
-            const altGreetings = char.data?.alternate_greetings ?? [];
-            // ST의 alternate_greetings 내부 배열에 직접 반영 후 저장 이벤트
-            if (typeof window.saveCharacterDebounced === 'function') {
-                window.saveCharacterDebounced();
-                return true;
-            }
-        }
-    } catch(e) { console.warn('[GreetingLadys] jQuery trigger 실패:', e); }
-
-    // ── 방법 3: /api/characters/edit-attribute (ST 1.11+)
-    try {
-        const res = await fetch('/api/characters/edit-attribute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                avatar_url: char.avatar,
-                ch_name: char.name,
-                field: 'data.alternate_greetings',
-                value: char.data.alternate_greetings,
-            }),
-        });
-        if (res.ok) return true;
-        console.warn('[GreetingLadys] edit-attribute 응답:', res.status);
-    } catch(e) { console.warn('[GreetingLadys] edit-attribute 실패:', e); }
-
-    // ── 방법 4: /api/characters/edit (multipart/form-data)
-    try {
-        const formData = new FormData();
-        formData.append('avatar_url', char.avatar);
-        formData.append('ch_name', char.name);
-        formData.append('description', char.description ?? '');
-        formData.append('personality', char.personality ?? '');
-        formData.append('scenario', char.scenario ?? '');
-        formData.append('first_mes', char.first_mes ?? '');
-        formData.append('mes_example', char.mes_example ?? '');
-        formData.append('world', char.world ?? '');
-        formData.append('json_data', JSON.stringify(char.data));
-        formData.append('overwrite_action', 'true');
-        const res = await fetch('/api/characters/edit', { method: 'POST', body: formData });
-        if (res.ok) return true;
-        console.warn('[GreetingLadys] /edit 응답:', res.status);
-    } catch(e) { console.warn('[GreetingLadys] /edit 실패:', e); }
-
-    return false;
 }
 
 function getCurrentCharInfo() {
@@ -447,26 +458,24 @@ function setLoading(on, msg) {
     const regen = document.getElementById('firstmsg-regen-btn');
     if (regen) regen.disabled = on;
 }
+
 function updateCharCount() {
     const r = document.getElementById('firstmsg-result');
     document.getElementById('firstmsg-char-count').textContent = r.value.length + '자';
 }
-async function handleCopy() {
-    const v = document.getElementById('firstmsg-result')?.value;
+
+async function handleCopyGenerated() {
+    const v = getVal('firstmsg-result');
     if (!v) return;
     await navigator.clipboard.writeText(v);
     toastr.success('클립보드에 복사했습니다!');
 }
+
 function handleClear() {
-    setVal('firstmsg-user-note', '');
-    setVal('firstmsg-result', '');
-    setChecked('firstmsg-korean', false);
-    const list = document.getElementById('firstmsg-candidates-list');
-    if (list) list.innerHTML = '';
-    document.getElementById('firstmsg-candidates-area').style.display = 'none';
-    document.getElementById('firstmsg-result-area').style.display = 'none';
+    resetGenerateTab();
     toastr.info('초기화되었습니다.');
 }
+
 function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
