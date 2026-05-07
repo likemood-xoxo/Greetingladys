@@ -234,44 +234,34 @@ function renderLibrary() {
 
     greetings.slice().reverse().forEach((g, reverseIdx) => {
         const idx = greetings.length - 1 - reverseIdx;
+        const num = greetings.length - idx;
         const card = document.createElement('div');
         card.className = 'firstmsg-library-card';
 
-        const preview = g.text.length > 120 ? g.text.slice(0, 120) + '...' : g.text;
-
         card.innerHTML = `
           <div class="firstmsg-library-meta">
-            <span class="firstmsg-library-num">#${greetings.length - idx}</span>
+            <span class="firstmsg-library-num">#${num}</span>
             <span class="firstmsg-library-date">${g.createdAt ?? ''}</span>
           </div>
-          <div class="firstmsg-library-preview">${escHtml(preview)}</div>
-          <div class="firstmsg-library-expanded" style="display:none;">${escHtml(g.text)}</div>
+          <div class="firstmsg-library-body">
+            <div class="firstmsg-library-text">${escHtmlWithBreaks(g.text)}</div>
+          </div>
           <div class="firstmsg-library-actions">
-            <button class="menu_button firstmsg-lib-expand-btn firstmsg-small-btn">👁️ 전체보기</button>
             <button class="menu_button firstmsg-lib-copy-btn firstmsg-small-btn">📋 복사</button>
             <button class="menu_button firstmsg-lib-delete-btn firstmsg-small-btn firstmsg-delete-btn">🗑️ 삭제</button>
           </div>
         `;
 
-        // 전체보기 토글
-        card.querySelector('.firstmsg-lib-expand-btn').addEventListener('click', () => {
-            const previewEl = card.querySelector('.firstmsg-library-preview');
-            const expandedEl = card.querySelector('.firstmsg-library-expanded');
-            const btn = card.querySelector('.firstmsg-lib-expand-btn');
-            const isExpanded = expandedEl.style.display !== 'none';
-            previewEl.style.display = isExpanded ? 'block' : 'none';
-            expandedEl.style.display = isExpanded ? 'none' : 'block';
-            btn.textContent = isExpanded ? '👁️ 전체보기' : '🔼 접기';
-        });
-
         // 복사
-        card.querySelector('.firstmsg-lib-copy-btn').addEventListener('click', async () => {
+        card.querySelector('.firstmsg-lib-copy-btn').addEventListener('click', async (e) => {
+            e.stopPropagation();
             await navigator.clipboard.writeText(g.text);
             toastr.success('클립보드에 복사했습니다!');
         });
 
         // 삭제
-        card.querySelector('.firstmsg-lib-delete-btn').addEventListener('click', async () => {
+        card.querySelector('.firstmsg-lib-delete-btn').addEventListener('click', async (e) => {
+            e.stopPropagation();
             if (!confirm('이 그리팅을 삭제할까요?')) return;
             await deleteFromLibrary(g.id);
             renderLibrary();
@@ -477,7 +467,15 @@ function handleClear() {
 }
 
 function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return str
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+// 보관함 텍스트용 — 줄바꿈을 <br>로 변환
+function escHtmlWithBreaks(str) {
+    return escHtml(str).replace(/\n/g, '<br>');
 }
 function on(id, ev, fn) { document.getElementById(id)?.addEventListener(ev, fn); }
 function getVal(id) { return document.getElementById(id)?.value ?? ''; }
